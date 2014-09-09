@@ -87,25 +87,20 @@ class ite{
     
     private function __construct() {       
         spl_autoload_register(function($class){
-            //global $_ITE;
-            //$_ITE->files->autoload(CACHE_PATH,$class);
-            
-            //$filename = str_replace('\\','/',CACHE_PATH .$class.'.php');
             $pos = strrpos($class, '\\');
-            $class_file = substr($class,$pos+1);
+            $class_file = ($pos !== false)?substr($class,$pos+1):$class;
             $class_namespace = substr($class,0,$pos);
             $temp = explode('\\',$class_namespace);
             array_walk($temp, function(&$element,$index){$element = md5($element);});
             $temp = implode('\\',$temp);
-            $filename = str_replace('\\','/',CACHE_PATH. $class_namespace.DIRECTORY_SEPARATOR.$class_file.'.php');
+            $filename = str_replace('\\','/',CACHE_PATH.$class_namespace.DIRECTORY_SEPARATOR.$class_file.'.php');
             if(file_exists($filename)){
                 require_once($filename);
             }elseif(file_exists(str_replace('\\','/',CACHE_PATH. $temp.DIRECTORY_SEPARATOR.md5($class_file.'.php')))){
                 $filename = str_replace('\\','/',CACHE_PATH. $temp.DIRECTORY_SEPARATOR.md5($class_file.'.php'));
                 require_once($filename);
             }else{
-                var_dump(str_replace('\\','/',CACHE_PATH. $temp.DIRECTORY_SEPARATOR.md5($class_file.'.php')));
-                $this->__error("Imposible incluir la librería, archivo no encontrado: ".$filename);
+                return false;
             }
         });
 
@@ -121,9 +116,13 @@ class ite{
         
         if (session_id() == "") {
             session_start();
-        } if (self::__debug()) {
+        } 
+        
+        if (self::__debug()) {
             ini_set("display_errors", "1");
-        } if (!isset(self::$instance)) {
+        } 
+        
+        if (!isset(self::$instance)) {
             $c = __CLASS__;
             self::$instance = new $c;
             self::$instance->cache = new cache(self::$instance);
@@ -239,7 +238,7 @@ class ite{
      */
     public function __error($msg){
         if($this->__debug()){$this->debug->error($msg);}
-        else{trigger_error($msg,E_USER_ERROR);}
+        else{\trigger_error($msg,E_USER_ERROR);}
     }
     
     /**
@@ -249,7 +248,7 @@ class ite{
      */
     public function __warn($msg){
         if($this->__debug()){$this->debug->warn($msg);}
-        else{trigger_error($msg,E_USER_WARNING);}
+        else{\trigger_error($msg,E_USER_WARNING);}
     }
     
     /**
@@ -259,6 +258,6 @@ class ite{
      */
     public function __info($msg){
         if($this->__debug()){$this->debug->info($msg);}
-        else{trigger_error($msg,E_USER_NOTICE);}
+        else{\trigger_error($msg,E_USER_NOTICE);}
     }
 }
