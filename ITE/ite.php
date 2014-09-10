@@ -248,7 +248,7 @@ class ite{
      */
     public function __warn($msg){
         if($this->__debug()){$this->debug->warn($msg);}
-        else{\trigger_error($msg,E_USER_WARNING);}
+        else{\trigger_error($msg,E_USER_NOTICE);}
     }
     
     /**
