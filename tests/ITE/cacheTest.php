@@ -9,6 +9,11 @@ namespace ITE;
 class cacheTest extends \PHPUnit_Framework_TestCase
 {
     /**
+     * Error handler trait.
+     */
+    use errorHandler;
+    
+    /**
      * @var cache
      */
     protected $object;
@@ -18,9 +23,10 @@ class cacheTest extends \PHPUnit_Framework_TestCase
      * This method is called before a test is executed.
      */
     protected function setUp()
-    {
+    {   
+        $this->initErrorHandler();
         $_ITE = ite::singleton();
-        $this->object = new cache($_ITE);
+        $this->object = new mysql($_ITE);
     }
 
     /**

@@ -85,7 +85,11 @@ class ite{
      */
     public $debug;
     
-    private function __construct() {       
+    /**
+     * Protected constructor to prevent creating a new instance of the *Singleton* via the `new` operator from outside of this class.
+     * Registers an custom autoloader function to load the rest of ITE classes (asuming that each class name space matches his respective path situation)
+     */
+    protected function __construct() {       
         spl_autoload_register(function($class){
             $pos = strrpos($class, '\\');
             $class_file = ($pos !== false)?substr($class,$pos+1):$class;
@@ -108,9 +112,28 @@ class ite{
     }
     
     /**
-     * Constructor class
-     * 
-     * @return ite
+     * Private clone method to prevent cloning of the instance of the *Singleton* instance.
+     *
+     * @return void
+     */
+    private function __clone()
+    {
+        $this->__error("Clonado del objeto no permitido.");
+    }
+    
+    /**
+     * Private unserialize method to prevent unserializing of the *Singleton* instance.
+     *
+     * @return void
+     */
+    private function __wakeup()
+    {
+    }
+    
+    /**
+     * Constructor class (based on Singleton pattern 'http://www.phptherightway.com/pages/Design-Patterns.html#singleton'). Returns the *Singleton* instance of this class.
+     * @staticvar ite $instance The *Singleton* instances of this class.
+     * @return ite The *Singleton* instance.
      */
     public static function singleton() {
         
@@ -225,13 +248,6 @@ class ite{
     public static function __debug(){return(defined("DEBUG")&&DEBUG==true)?true:false;}
     
     /**
-     * Alerts about object cloning
-     */
-    public function __clone(){
-        $this->__error("Error al clonar el objeto: no está permitido.");
-    }
-    
-    /**
      * Trigger error message and shows it over FirePHP if debug is true or Error Log if false
      * 
      * @param string $msg
@@ -248,7 +264,7 @@ class ite{
      */
     public function __warn($msg){
         if($this->__debug()){$this->debug->warn($msg);}
-        else{\trigger_error($msg,E_USER_NOTICE);}
+        else{\trigger_error($msg,E_USER_WARNING);}
     }
     
     /**

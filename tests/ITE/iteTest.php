@@ -8,6 +8,11 @@ namespace ITE;
 class iteTest extends \PHPUnit_Framework_TestCase
 {
     /**
+     * Error handler trait.
+     */
+    use errorHandler;
+    
+    /**
      * @var ite
      */
     protected $object;
@@ -18,7 +23,9 @@ class iteTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        $this->object = ite::singleton();
+        $this->initErrorHandler();
+        $_ITE = ite::singleton();
+        $this->object = new mysql($_ITE);
     }
 
     /**
