@@ -26,7 +26,7 @@ class cacheTest extends \PHPUnit_Framework_TestCase
     {   
         $this->initErrorHandler();
         $_ITE = ite::singleton();
-        $this->object = new mysql($_ITE);
+        $this->object = new cache($_ITE);
     }
 
     /**

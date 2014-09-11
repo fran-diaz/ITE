@@ -20,7 +20,7 @@ function autoload($dir){
 session_start();
 
 define("ROOT_PATH",getcwd().DIRECTORY_SEPARATOR);
-define("CACHE_PATH","");
+define("CACHE_PATH",getcwd().DIRECTORY_SEPARATOR);
 define("LANG_PATH","");
 define("WEB_PATH","");
 define("PDC_PATH",ROOT_PATH);
@@ -31,7 +31,7 @@ define("LOCATION", "test");
 define("BASEFILE","ite");
 define("DOMAIN",  "testcase");
 define("DEBUG", false);
-define("UPDATE_CACHE",false);
+define("UPDATE_CACHE",true);
 define("DBSERVER","ns13.brainhardware.es");
 define("DBUSER","default_user");
 define("DBPASS","default_password");

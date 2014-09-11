@@ -133,9 +133,10 @@ class ite{
     /**
      * Constructor class (based on Singleton pattern 'http://www.phptherightway.com/pages/Design-Patterns.html#singleton'). Returns the *Singleton* instance of this class.
      * @staticvar ite $instance The *Singleton* instances of this class.
+     * @var string $db_controller Name of the desired data base controller.
      * @return ite The *Singleton* instance.
      */
-    public static function singleton() {
+    public static function singleton($db_controller = 'mysql') {
         
         if (session_id() == "") {
             session_start();
@@ -156,20 +157,25 @@ class ite{
             self::$instance->js = new js(self::$instance);
             
             self::$instance->__cache();
-            self::set_db_controller();
+            self::set_db_controller($db_controller);
         } return self::$instance;
     }
     
     /**
      * Function that sets intantiates database library core
      * 
-     * @param string $type Default DB library core
+     * @var string $type Final name of the desired data base class to load. (namespace + class name)
+     * @param string $type Name of the data base controller class
+     * @return boolean
      */
     public static function set_db_controller($type = "mysql") {
-        //$aux_lib = (file_exists(__DIR__.DIRECTORY_SEPARATOR.md5($type.".class.php"))) ? md5($type.".class.php") : $type.'.class.php';
-        //require($aux_lib);
-        $type = '\ITE\\'.$type;
-        self::$instance->bdd = new $type(self::$instance);
+        $type = __NAMESPACE__.'\\'.$type;
+        if(class_exists($type)){
+            self::$instance->bdd = new $type(self::$instance);
+            return true;
+        }else{
+            return false;
+        }
     }
 
     /**
@@ -177,8 +183,8 @@ class ite{
      * 
      * @return boolean Returns none if success or false if fails.
      */
-    public function __cache(){
-        if(UPDATE_CACHE == true){
+    public function __cache(){;
+        if(UPDATE_CACHE === true){
             if(!defined("LOCATION") || !defined("CODE") || !defined("LIBRARY") || !defined("CACHE_PATH")){
                 $this->__error("Imposible recuperar el archivo remoto: falta alguna constante por definir");
                 return false;
@@ -190,6 +196,7 @@ class ite{
             }
 
             $cnn = ftp_connect(LOCATION);
+            if($cnn === false){$this->__error("Imposible conectar al servidor FTP remoto.");return false;}
             $rs = ftp_login($cnn, LIBRARY, CODE);
             ftp_chdir($cnn, LIBRARY);
             $files = ftp_nlist($cnn, ".");
@@ -221,6 +228,7 @@ class ite{
      * 
      * @param string $uri_ptr Pattern to search over it
      * @param callable $callback Function to execute in callback
+     * @var string $_GET['url'] Asummed that is previusly defined by .htaccess or by the user and contains a valid internal url (ex. blog/2010-01-01/example title)
      * @return boolean Executes callback on success or false if fails
      */
     public function request($uri_ptr, $callback) {
@@ -241,8 +249,9 @@ class ite{
     }
     
     /**
-     * Checks if debug is active
+     * Checks if DEBUG constant is defined is active
      * 
+     * @staticvar boolean DEBUG Assumed that is previusly defined in the bootstrap file (settings)
      * @return boolean
      */
     public static function __debug(){return(defined("DEBUG")&&DEBUG==true)?true:false;}
@@ -250,7 +259,7 @@ class ite{
     /**
      * Trigger error message and shows it over FirePHP if debug is true or Error Log if false
      * 
-     * @param string $msg
+     * @param string $msg Error message sent to the user
      */
     public function __error($msg){
         if($this->__debug()){$this->debug->error($msg);}
