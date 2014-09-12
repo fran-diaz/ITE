@@ -41,128 +41,113 @@ class mysqlTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers ITE\mysql::reconnect
-     * @todo   Implement testReconnect().
-     * @expectedExcpetion PHPUnit_Framework_Error
+     * @covers ITE\mysql->reconnect
      */
     public function testReconnect()
     {
-        $this->assertError("Enlace a BDD temporal: default DB parameters.",E_USER_WARNING);
-        
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
-        
-        
+        $this->assertFalse($this->object->reconnect('dummyserver', DBUSER, DBPASS, DB));
+        $this->assertTrue($this->object->reconnect(DBSERVER, DBUSER, DBPASS, DB));
     }
 
     /**
-     * @covers ITE\mysql::bd_connect
-     * @todo   Implement testBd_connect().
+     * @covers ITE\mysql->bd_connect
      */
     public function testBd_connect()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $this->assertTrue($this->object->bd_connect());
     }
 
     /**
      * @covers ITE\mysql::log
-     * @todo   Implement testLog().
      */
     public function testLog()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $result = $this->object->log('dummyTable','dummyId','dummyAction','dummyLog');
+        $this->assertInternalType('integer',$result);
+        $this->assertNotSame(0,$result);
     }
 
     /**
-     * @covers ITE\mysql::consultar
-     * @todo   Implement testConsultar().
+     * @covers ITE\mysql->consultar
      */
     public function testConsultar()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $this->assertCount(1,$this->object->consultar("log","1=1","log_id DESC LIMIT 1",false,false));
+        $this->assertFalse($this->object->consultar("dummyTable","1=1","log_id DESC LIMIT 1",false,false));
     }
 
     /**
      * @covers ITE\mysql::select
-     * @todo   Implement testSelect().
      */
     public function testSelect()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $this->assertCount(1,$this->object->select("log","1=1","log_id DESC LIMIT 1",false,false));
+        $this->assertFalse($this->object->select("dummyTable","1=1","log_id DESC LIMIT 1",false,false));
     }
 
     /**
-     * @covers ITE\mysql::free_query
-     * @todo   Implement testFree_query().
+     * @covers ITE\mysql->free_query
      */
     public function testFree_query()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $this->assertCount(1,$this->object->free_query("SELECT * FROM log WHERE 1=1 LIMIT 1",false));
+        $this->assertArrayHasKey('num_elements',$this->object->free_query("SELECT * FROM log WHERE 1=1 LIMIT 1",true));
+        $this->assertCount(2,$this->object->free_query("SELECT * FROM log WHERE 1=1 LIMIT 1;SELECT log_id FROM log WHERE 1=1 LIMIT 2",false));
+        $this->assertFalse($this->object->free_query("SELECT * FROM log WHERE log_id = '0' LIMIT 1",true));
     }
 
     /**
-     * @covers ITE\mysql::insertar
-     * @todo   Implement testInsertar().
+     * @covers ITE\mysql->insertar
      */
     public function testInsertar()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $table = 'log';
+        $fields = array('log');
+        $values = array('dummy text');
+        $this->assertInternalType('integer',$this->object->insertar($table, $fields, $values));
+        $table = 'dummyTable';
+        $this->assertFalse($this->object->insertar($table, $fields, $values));
     }
 
     /**
-     * @covers ITE\mysql::insert
-     * @todo   Implement testInsert().
+     * @covers ITE\mysql->insert
      */
     public function testInsert()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $table = 'log';
+        $fields = array('log');
+        $values = array('dummy text');
+        $this->assertInternalType('integer',$this->object->insert($table, $fields, $values));
+        $table = 'dummyTable';
+        $this->assertFalse($this->object->insert($table, $fields, $values));
     }
 
     /**
      * @covers ITE\mysql::editar
-     * @todo   Implement testEditar().
      */
     public function testEditar()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $table = 'log';
+        $values = array("log = 'Tested!'");
+        $id = (int)$this->object->select($table,"1=1","log_id DESC LIMIT 1")[0]['log_id'];
+        $this->assertInternalType('integer',$id);
+
+        $this->assertTrue($this->object->editar($table, $values, $id));
+        $this->assertFalse($this->object->editar($table, $values, '\'S'));
     }
 
     /**
      * @covers ITE\mysql::update
-     * @todo   Implement testUpdate().
      */
     public function testUpdate()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $table = 'log';
+        $values = array("log = 'Tested!'");
+        $id = (int)$this->object->select($table,"1=1","log_id DESC LIMIT 1")[0]['log_id'];
+        $this->assertInternalType('integer',$id);
+
+        $this->assertTrue($this->object->editar($table, $values, $id));
+        $this->assertFalse($this->object->editar($table, $values, '\'S'));
     }
 
     /**
