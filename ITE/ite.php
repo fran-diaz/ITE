@@ -5,7 +5,7 @@ namespace ITE;
  *  
  *  The MIT License (MIT)
  *
- *  Copyright (c) [year] [fullname]
+ *  Copyright (c) 2014 Fran Díaz
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,7 @@ namespace ITE;
  * 
  * ***** END LICENSE BLOCK *****
  * 
- * @copyright   Copyright © 2007-2014 Fran Díaz
+ * @copyright   Copyright © 2014 Fran Díaz
  * @author      Fran Díaz <fran.diaz.gonzalez@gmail.com>
  * @license     http://opensource.org/licenses/MIT
  * @version     4.5b
@@ -39,7 +39,7 @@ namespace ITE;
 /**
  * Main class to provide MVC Controller functionality. Based on Singleton pattern.
  * 
- * @copyright   Copyright © 2007-2014 Fran Díaz
+ * @copyright   Copyright © 2014 Fran Díaz
  * @author      Fran Díaz <fran.diaz.gonzalez@gmail.com>
  * @license     http://opensource.org/licenses/MIT
  * @version     4.5b
@@ -49,39 +49,35 @@ namespace ITE;
  */
 class ite{
     /**
-     * @var \ITE\ite
+     * @property $instance ite
      */
     private static $instance;
     /**
-     * @var \ITE\functions 
+     * @property $funcs functions 
      */
     public $funcs;
     /**
-     * @var \ITE\files 
+     * @property $files files 
      */
     public $files;
     /**
-     * @var \ITE\cache 
+     * @property $cache cache 
      */
     public $cache;
     /**
-     * @var \ITE\lang
+     * @property $lang lang
      */
     public $lang;
     /**
-     * @var \ITE\mysql
+     * @property $bdd mysql
      */
     public $bdd;
     /**
-     * @var \ITE\css
+     * @property $css css
      */
     public $css;
     /**
-     * @var \ITE\js
-     */
-    public $js;
-    /**
-     * @var \ITE\FirePHP
+     * @property $debug FirePHP
      */
     public $debug;
     
@@ -154,7 +150,6 @@ class ite{
             self::$instance->files = new files(self::$instance);
             self::$instance->funcs = new functions(self::$instance);
             self::$instance->css = new css(self::$instance);
-            self::$instance->js = new js(self::$instance);
             
             self::$instance->__cache();
             self::set_db_controller($db_controller);
@@ -231,18 +226,23 @@ class ite{
      * @var string $_GET['url'] Asummed that is previusly defined by .htaccess or by the user and contains a valid internal url (ex. blog/2010-01-01/example title)
      * @return boolean Executes callback on success or false if fails
      */
-    public function request($uri_ptr, $callback) {
+    public function request($uri_ptr, $callback, $url = null) {
+        if(is_null($url) || $url === 'GET'){$target_url = $_GET['url'];}
+        else{$target_url = $url;}
         $matches = array();
         $uri_ptr = (defined('WEB_PATH')) ? WEB_PATH . $uri_ptr : $uri_ptr;
         $pattern = '%^' . preg_replace('/\{([\p{L}0-9_\-ñÑ ]+)\}/s', '([\p{L}0-9\-\_ñÑ ]+)', $uri_ptr) . '$%su';
-        if (preg_match($pattern, $_GET['url'], $matches)) {
+        if (preg_match($pattern, $target_url, $matches)) {
             array_shift($matches);
-            $this->__info('ACTIVE ROUTE: ' . $uri_ptr);
-            if (!isset($_SESSION['ROUTED'])) {
-                $_SESSION['ROUTED'] = array($uri_ptr => $matches);
-            } else {
-                $_SESSION['ROUTED'][$uri_ptr] = $matches;
-            } return call_user_func_array($callback, $matches);
+            if(is_null($url) || $url === 'GET'){
+                $this->__info('ACTIVE ROUTE: ' . $uri_ptr);
+                if (!isset($_SESSION['ROUTED'])) {
+                    $_SESSION['ROUTED'] = array($uri_ptr => $matches);
+                } else {
+                    $_SESSION['ROUTED'][$uri_ptr] = $matches;
+                } 
+            }
+            return call_user_func_array($callback, $matches);
         } else {
             return false;
         }
@@ -254,7 +254,11 @@ class ite{
      * @staticvar boolean DEBUG Assumed that is previusly defined in the bootstrap file (settings)
      * @return boolean
      */
-    public static function __debug(){return(defined("DEBUG")&&DEBUG==true)?true:false;}
+    public static function __debug(){
+        if(defined("DEBUG")){
+            return DEBUG;
+        }
+    }
     
     /**
      * Trigger error message and shows it over FirePHP if debug is true or Error Log if false
@@ -284,5 +288,19 @@ class ite{
     public function __info($msg){
         if($this->__debug()){$this->debug->info($msg);}
         else{\trigger_error($msg,E_USER_NOTICE);}
+    }
+    
+    /**
+     * Alias method of $this->lang->gt
+     * 
+     * @param type $ptr Code of string to be localized
+     * @return string|null
+     */
+    public function __($ptr){
+        if(method_exists($this->lang, 'gt')){
+            return $this->lang->gt($ptr);
+        }else{
+            $this->__warn('El acceso directo a la función getText de la librería lang falló, la librería parece no estár instanciada.');
+        }
     }
 }

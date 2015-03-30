@@ -102,8 +102,11 @@ class files {
                 $content = $this->compress_html($content);
                 break;
             case "js":
-                if($this->container->__debug()){$this->container->debug->warn("No es posible realizar compresión de archivos JS en estos momentos");}
-                else{trigger_error("No es posible realizar compresión de archivos JS en estos momentos",E_USER_WARNING);}
+                $content = file_get_contents($file);
+                //$content = $this->compress_js($content);
+                
+                if($this->container->__debug()){$this->container->debug->warn("No es posible realizar compresión de archivos JS en estos momentos, devuelto sin comprimir");}
+                else{trigger_error("No es posible realizar compresión de archivos JS en estos momentos, devuelto sin comprimir",E_USER_WARNING);}
                 break;
         }
         return $content;
@@ -236,6 +239,67 @@ class files {
         $ext = substr($file, $pos+1);
         if(strlen($ext) > 5 || strlen($ext) < 1){return false;}else{return strtolower($ext);}
     }
+    
+    
+    public function get_file_size($file,$decimals = 2){
+        $bytes = filesize($file);
+        $sz = 'BKMGTP';
+        $factor = floor((strlen($bytes) - 1) / 3);
+        return sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) . @$sz[$factor];
+    }
+    
+    /**
+     * Function that compress js code
+     * 
+     * @param type $content
+     * @return type
+     */
+    public function compress_js($content){
+        $replace = array(
+            '#\'([^\n\']*?)/\*([^\n\']*)\'#' => "'\1/'+\'\'+'*\2'", // remove comments from ' strings
+            '#\"([^\n\"]*?)/\*([^\n\"]*)\"#' => '"\1/"+\'\'+"*\2"', // remove comments from " strings
+            '#/\*.*?\*/#s'            => "",      // strip C style comments
+            '#[\r\n]+#'               => "\n",    // remove blank lines and \r's
+            '#\n([ \t]*//.*?\n)*#s'   => "\n",    // strip line comments (whole line only)
+            '#([^\\])//([^\'"\n]*)\n#s' => "\\1\n",
+                                                  // strip line comments
+                                                  // (that aren't possibly in strings or regex's)
+            '#\n\s+#'                 => "\n",    // strip excess whitespace
+            '#\s+\n#'                 => "\n",    // strip excess whitespace
+            '#(//[^\n]*\n)#s'         => "\\1\n", // extra line feed after any comments left
+                                                  // (important given later replacements)
+            '#/([\'"])\+\'\'\+([\'"])\*#' => "/*" // restore comments in strings
+          );
+
+          $search = array_keys( $replace );
+          $content = preg_replace( $search, $replace, $content );
+
+          $replace = array(
+            "&&\n" => "&&",
+            "||\n" => "||",
+            "(\n"  => "(",
+            ")\n"  => ")",
+            "[\n"  => "[",
+            "]\n"  => "]",
+            "+\n"  => "+",
+            ",\n"  => ",",
+            "?\n"  => "?",
+            ":\n"  => ":",
+            ";\n"  => ";",
+            "{\n"  => "{",
+        //  "}\n"  => "}", (because I forget to put semicolons after function assignments)
+            "\n]"  => "]",
+            "\n)"  => ")",
+            "\n}"  => "}",
+            "\n\n" => "\n"
+          );
+
+          $search = array_keys( $replace );
+          $content = str_replace( $search, $replace, $content );
+          
+          return $content;
+    }
+    
     
     /**
      * Function that compress HTML code

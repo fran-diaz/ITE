@@ -24,7 +24,7 @@ class cacheTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {   
-        $this->initErrorHandler();
+        $this->initErrorHandler(true);
         $_ITE = ite::singleton();
         $this->object = new cache($_ITE);
     }
@@ -35,18 +35,20 @@ class cacheTest extends \PHPUnit_Framework_TestCase
      */
     protected function tearDown()
     {
+        $output = $this->getErrors();
+                
+        if($output !== false){
+            echo $output;
+        }
     }
 
     /**
-     * @covers ITE\cache::get_file
-     * @todo   Implement testGet_file().
+     * @covers ITE\cache->get_file
      */
     public function testGet_file()
     {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-          'This test has not been implemented yet.'
-        );
+        $this->object->get_file('dummy_file.php');
+        $this->assertError('Imposible conectar al servidor FTP remoto.', E_USER_ERROR);
     }
 
     /**

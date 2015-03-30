@@ -58,7 +58,7 @@ class functions {
                 else {$input = stripslashes($input);}
             }
             if($strip_tags) {$input = strip_tags($input);}
-            $input = mysql_real_escape_string($input);
+            $input = $this->container->bdd->escape_string($input);
             $input = trim($input);
 	}
 	return $input;

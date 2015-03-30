@@ -32,7 +32,7 @@ define("BASEFILE","ite");
 define("DOMAIN",  "testcase");
 define("DEBUG", false);
 define("UPDATE_CACHE",true);
-define("DBSERVER","ns13.brainhardware.es");
+define("DBSERVER","dummyserver.local");
 define("DBUSER","default_user");
 define("DBPASS","default_password");
 define("DB","default_db");

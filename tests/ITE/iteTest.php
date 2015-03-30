@@ -34,6 +34,11 @@ class iteTest extends \PHPUnit_Framework_TestCase
      */
     protected function tearDown()
     {
+        $output = $this->getErrors();
+                
+        if($output !== false){
+            echo $output;
+        }
     }
 
     /**
