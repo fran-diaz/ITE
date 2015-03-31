@@ -244,7 +244,15 @@ class lang {
     }
     
     public function savePending(){
-        if(!is_dir(ROOT_PATH.'lang')){mkdir(ROOT_PATH.'lang',0775);}
+        if(!is_dir(ROOT_PATH.'lang')){
+            @mkdir(ROOT_PATH.'lang',0775);
+            if(!is_dir(ROOT_PATH.'lang')){
+                if(!headers_sent()){
+                    $this->container->__warn('No ha sido posible crear el directorio de idiomas (lang). Posiblemente falten permisos.');
+                }
+                return false;
+            }
+        }
         if($this->lang_file_type === "PO EDIT"){
             return $this->writePoFile($this->active_lang_file.'.pending');
         }else{
