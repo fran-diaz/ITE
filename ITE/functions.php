@@ -307,4 +307,26 @@ class functions {
 
         flush();
     }
+    
+    /**
+     * Function that generates breadcrumbs microformat menu
+     * 
+     * @param array $links Set of links to show (crumbs)
+     * @param boolean $display Echo the results of function or return it
+     * @return none|string Result menu if $display is false 
+     */
+    public function show_breadcrumbs($links, $display = true){
+        $html = '<ul id="breadcrumbs" class="breadcrumbs clearfix">'."\n".'<li itemscope itemtype="http://data-vocabulary.org/Breadcrumb"><a href="/" itemprop="url"><span itemprop="title">Home</span></a></li>'."\n";
+        foreach($links as $crumb){
+            $html .= '<li class="separator"></li>'."\n";
+            if(is_array($crumb)){$html .= '<li itemscope itemtype="http://data-vocabulary.org/Breadcrumb"><a href="'.$crumb['url'].'" itemprop="url"><span itemprop="title">'.$crumb['title'].'</span></a></li>'."\n";}
+            else{$html .= '<li itemscope itemtype="http://data-vocabulary.org/Breadcrumb"><span itemprop="breadcrumb">'.$crumb.'</span></li>'."\n";}
+        }
+        $html .= '</ul>'."\n";
+        if($display){
+            echo $html;
+        }else{
+            return $html;
+        }
+    }
 }
