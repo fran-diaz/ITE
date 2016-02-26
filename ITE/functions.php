@@ -315,7 +315,7 @@ class functions {
      * @param boolean $display Echo the results of function or return it
      * @return none|string Result menu if $display is false 
      */
-    public function show_breadcrumbs($links, $display = true){
+    public function showBreadcrumbs($links, $display = true){
         $html = '<ul id="breadcrumbs" class="breadcrumbs clearfix">'."\n".'<li itemscope itemtype="http://data-vocabulary.org/Breadcrumb"><a href="/" itemprop="url"><span itemprop="title">Home</span></a></li>'."\n";
         foreach($links as $crumb){
             $html .= '<li class="separator"></li>'."\n";

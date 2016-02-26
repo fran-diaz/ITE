@@ -1,0 +1,26 @@
+{
+    "name": "fran-diaz/ITE",
+    "description": "Basic PHP 5 Framework",
+    "type": "library",
+    "keywords": ["ite"],
+    "homepage": "https://github.com/fran-diaz/ITE",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Fran Díaz",
+            "email": "fran.diaz.gonzalez@gmail.com",
+            "homepage": "http://www.brainhardware.es",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "email": "fran.diaz.gonzalez@gmail.com",
+        "source": "https://github.com/fran-diaz/ITE"
+    },
+    "require": {
+        "php": ">=5.5.0"
+    },
+    "autoload": { 
+        "classmap": [ "ITE/" ] 
+    }
+}

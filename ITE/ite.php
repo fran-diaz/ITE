@@ -80,6 +80,10 @@ class ite{
      * @property $debug FirePHP
      */
     public $debug;
+    /**
+     * @property $auth auth
+     */
+    public $auth;
     
     /**
      * Protected constructor to prevent creating a new instance of the *Singleton* via the `new` operator from outside of this class.
@@ -131,7 +135,7 @@ class ite{
      * 
      * @return boolean Returns none if success or false if fails.
      */
-    public function __cache(){;
+    public function __cache(){
         if(UPDATE_CACHE === true){
             if(!defined("LOCATION") || !defined("CODE") || !defined("LIBRARY") || !defined("CACHE_PATH")){
                 $this->__error("Imposible recuperar el archivo remoto: falta alguna constante por definir");
@@ -254,6 +258,9 @@ class ite{
             
             self::$instance->__cache();
             self::set_db_controller($db_controller);
+            if(defined('AUTH') && AUTH === true){
+                self::$instance->auth = new auth(self::$instance);
+            }
         } return self::$instance;
     }
     

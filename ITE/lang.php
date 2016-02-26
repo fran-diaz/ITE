@@ -211,7 +211,11 @@ class lang {
     public function gt($search){
         if(LANG_IN_USE === false){return $search;}
         if(isset($this->translation[$search])){
-            return $this->translation[$search];
+            if(!empty($this->translation[$search])){
+                return $this->translation[$search];
+            }else{
+                return $search;
+            }
         }else{
             if(array_search($search, $this->pending) === false){$this->pending[] = $search;}
             

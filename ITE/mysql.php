@@ -99,7 +99,7 @@ class mysql implements dbInterface{
     protected function bd_format($sum = false) {
         if($this->result === true){
             $formated[] = true;
-        }else{
+        }elseif($this->result !== false){
             while($aux = $this->result->fetch_assoc()) {
                 $keys = array_keys($aux);
                 $formated[] = $aux;
@@ -125,7 +125,7 @@ class mysql implements dbInterface{
      */
     public function log($table_name, $id, $action,$log) {
         $uid = (isset($_SESSION['uid']))?$_SESSION['uid']:"0";
-        $query = "INSERT INTO log (usuarios_id, tabla, id, accion, log, fecha) VALUES ('$uid','$table_name','$id','$action','$log',NOW())";
+        $query = "INSERT INTO log (`users_id`, `table`, `id`, `action`, `log`, `date`) VALUES ('$uid','$table_name','$id','$action','$log',NOW())";
         return $this->bd($query);
     }
 
@@ -184,7 +184,9 @@ class mysql implements dbInterface{
                     $this->container->__error("Subquery of Free query failed: $query");
                 }
             }
-            return $this->bd_format($sum);
+            if($this->result !== false){
+                return $this->bd_format($sum);
+            }
         }else{
             if($this->bd($query) !== false){
                 if(is_null($sum)){return true;}
@@ -516,7 +518,7 @@ class mysql implements dbInterface{
         }
         
         if(isset($config['linked_field'])){
-            $html .= '<script type="text/javascript">$(document).on(\'change\',\'#'.$config['linked_field'].'\',function(){var v = $(this).val();var im = 0;$(\'#'.$name.'\').find(\'option\').each(function(i,el){ $(this).prop(\'selected\',false);if($(this).attr(\'data-linked-value\') === v){if(im === 0){$(this).prop(\'selected\',true);}$(this).show();im++;}else{$(this).hide();} });});</script>';
+            $html .= '<script type="text/javascript">$(document).on(\'change\',\'#'.$config['linked_field'].'\',function(){var v = $(this).val();var im = 0;$(\'#'.$name.' option[value="0"]\').prop(\'selected\',false).hide();$(\'#'.$name.'\').find(\'option\').each(function(i,el){ $(this).prop(\'selected\',false);if($(this).attr(\'data-linked-value\') === v){if(im === 0){$(this).prop(\'selected\',true);}$(this).show();im++;}else{$(this).hide();} }); if(im === 0){if($(\'#'.$name.' option[value="0"]\').length === 1){$(\'#'.$name.' option[value="0"]\').prop(\'selected\',true).show();}else{$(\'#'.$name.'\').append(\'<option value="0" selected="selected">No hay elementos que mostrar</option>\');}} });</script>';
         }
         
         $html .= '</div>';
@@ -895,7 +897,8 @@ class mysql implements dbInterface{
                 }
                 $result_aux = $this->consultar($aux_table,"",$order_query,false,false);
 				
-                foreach($result_aux as $row_aux){
+                $values = [];
+                if($result_aux)foreach($result_aux as $row_aux){
                     $keys = array_keys($row_aux);
                     if(isset($field_config['external_field'])){
                         if(strpos($field_config['external_field'],'+')){
@@ -1054,7 +1057,7 @@ class mysql implements dbInterface{
         }
         
         if($table_id_field !== null){$rows = $this->consultar($table,"1=1 $filter",$order_query." LIMIT 1000",false,false);}
-        else{$rows = $this->consultar($table,"1=1 $filter","",false,false);}
+        else{$rows = $this->consultar($table,"1=1 $filter",$order_query,false,false);}
         $aux_col_info = $this->get_columns_info($table);
         if($rows){foreach($rows as $num => $row){
             if($table_id_field !== null){$i = $row[$table_id_field];}
@@ -1117,6 +1120,12 @@ class mysql implements dbInterface{
                                     }else{
                                         $html .= "<td>".$this->container->funcs->date_format($row[$column_info[1]],4)."</td>";
                                     }
+                                }elseif(substr($field['Type'],0,4) == "enum"){
+                                    $values = explode(",",str_replace('\'','',explode(")", explode("(", $field['Type'])[1])[0]));
+                                    $labels = $field_config['value_labels'];
+                                    $value_pos = array_search($row[$column_info[1]], $values,true);
+                                    $value_label = ($value_pos !== false && isset($labels[$value_pos]))?$labels[$value_pos]:$row[$column_info[1]];
+                                    $html .= "<td $action>$value_label</td>";
                                 }else{$html .= "<td>".$row[$column_info[1]]."</td>";}
                             }
                         }

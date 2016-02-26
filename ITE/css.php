@@ -110,4 +110,15 @@ class css {
     public function transition($value = "all 200ms ease"){
         return "-webkit-transition: $value;-moz-transition: $value;-o-transition: $value;-ms-transition: $value;transition-duration: $value;";
     }
+    
+    /**
+     * Function that generates filter method for achieve other browsers specs.
+     * 
+     * @param string $filter Type of filter to apply (Ex. greyscale)
+     * @param string $value Filter expression (Ex. 100%)
+     * @return string CSS3 code to output filter
+     */
+    public function filter($filter = "grayscale",$value = "100%"){
+        return "-webkit-filter: $filter($value);-moz-filter: $filter($value);-o-filter: $filter($value);-ms-filter: $filter($value);filter: $filter($value);";
+    }
 }
