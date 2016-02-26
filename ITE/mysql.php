@@ -19,10 +19,17 @@ class mysql implements dbInterface{
     private $dbuser;
     private $dbpassword;
     private $db;
+    private $dbhash;
     private $descriptor;
     private $result;
-    public $order = null;
+    public $order = 'DESC';
+    public $order_by = null;
+    public $max_rows_limit = 1000;
+    public $short_columns = array();
+    public $columns = array();
+    private $tables_config;
     private $fields_config;
+    public $cache_queries = false;
     public $container;
 
     public function __construct($container) {
@@ -31,6 +38,7 @@ class mysql implements dbInterface{
         $this->dbuser = (defined("DBUSER"))?DBUSER:"default_user";
         $this->dbpassword = (defined("DBPASS"))?DBPASS:"default_password";
         $this->db = (defined("DB"))?DB:"default_db";
+        $this->dbhash = md5($this->dbserver.$this->dbuser.$this->dbpassword.$this->db);
         $this->bd_connect();
         
         if($this->dbuser == "default_user" && $this->dbpassword == "default_password" && $this->db == "default_db"){
@@ -52,6 +60,7 @@ class mysql implements dbInterface{
         $this->dbuser = $user;
         $this->dbpassword = $pass;
         $this->db = $db;
+        $this->dbhash = md5($this->dbserver.$this->dbuser.$this->dbpassword.$this->db);
         return $this->bd_connect();
     }
 
@@ -134,8 +143,8 @@ class mysql implements dbInterface{
      * 
      * @return array|boolean Returns the array of SELECTED elements or false if fails
      */
-    public function consultar($table,$where = "",$order = "",$sum = true,$log = false) {
-        return $this->select($table,$where,$order,$sum,$log);
+    public function consultar($table,$where = "",$order = "",$sum = true,$log = false, $cache = null) {
+        return $this->select($table,$where,$order,$sum,$log,$cache);
     }
     
     /**
@@ -148,7 +157,7 @@ class mysql implements dbInterface{
      * @param boolean $log If the query will be loged
      * @return array|boolean Returns the array of SELECTED elements or false if fails
      */
-    public function select($table,$where = "",$order = "",$sum = true,$log = false) {
+    public function select($table,$where = "",$order = "",$sum = true,$log = false, $cache = null) {
         $aux = explode(" ",$table);
         $query = (in_array("SELECT",$aux))?"$table ":"SELECT * FROM $table ";
         $query .= ($where != "")?" WHERE $where ":"";
@@ -158,12 +167,40 @@ class mysql implements dbInterface{
             $query .= (in_array("GROUP",$aux))?$order:" ORDER BY $order ";
         }
         
+        if(is_null($cache)){
+            $cache = $this->cache_queries;
+        }
+        
+        if($cache === true){
+            $cache_dir = (isset($_SESSION['uid']))?CACHE_PATH.'Q'.DIRECTORY_SEPARATOR.md5(DOMAIN).DIRECTORY_SEPARATOR.$_SESSION['uid'].DIRECTORY_SEPARATOR.$this->dbhash:CACHE_PATH.'Q'.DIRECTORY_SEPARATOR.'-'.DIRECTORY_SEPARATOR.$this->dbhash;
+            if(!is_dir($cache_dir)){
+                @mkdir($cache_dir,0775,true);
+                if(!is_dir($cache_dir)){
+                    if(!headers_sent()){
+                        $this->container->__warn('No ha sido posible crear el directorio de cache de base de datos (Q). Posiblemente falten permisos.');
+                    }
+                    return false;
+                }
+            }
+            $query_hash = md5($query);
+            $cache_file = $cache_dir.DIRECTORY_SEPARATOR.$query_hash;
+        }
+        
+        if($cache === true && $this->container->cache->cache_status($cache_file,86400) !== false){
+            $this->container->__info('Cache in use: Q, '.substr($table,0,5)); //$query
+            return $this->container->cache->read($cache_file);
+        }else{
         if($this->bd($query) !== false){
+                $result = $this->bd_format($sum);
             if($log){$this->log($table, 0, "Consultar", "- Definir patron de registro log -");}
-            return $this->bd_format($sum);
+                if($cache === true && count($result) >= 1 && $this->container->cache->write($cache_file,$result) === false){
+                    $this->container->__error('No ha sido posible generar la cache de la consulta. File: '.$cache_file.', Query: '.$query);
+                }
+                return $result;
         }else{
             return false;
         }
+    }
     }
     
     /**
@@ -221,6 +258,7 @@ class mysql implements dbInterface{
         $query .= implode("', '",$values);
         $query .= "')";
         $query = str_replace("'NOW()'", "NOW()", $query);
+        $query = str_replace("'NULL'", "NULL", $query);
 
         return $this->bd($query);
     }
@@ -627,26 +665,31 @@ class mysql implements dbInterface{
      *  - disabled: disables an input field
      *  - external_table: nombre de la tabla externa
      *  - external_table=none: campo id que no correcponde a una tabla externa
-     *  - external_field: nombre del campo externo
+     *  - external_field: nombre del campo externo para el label. Puede ser compuesto, siempre dentro del los datos devueltos en la misma línea de la tabla externa. Se pueden separar campos en labels compuestos con carácteres de longitud 1. (EJ: #+units_id+-+unit_name) 
      *  - placeholder: valor para el placeholder
      *  - size: Max charater length of field  
      *  - value_labels: In case of ENUM field, labels of possible values (Ex. value_labels:one|two|three)
      *  - input_type: In case of ENUM field or VARCHAR, type of input to represent values (for ENUM checkbox, radio... default select, for VARCHAR password, text)
      *  - help_tip: Code to show a help tip, only visible in label
-     *  - linked_field: El campo por el cual se deben filtrar 'visualmente' sus valores mostrados
+     *  - linked_field: El campo en base al cual se deben filtrar 'visualmente' los valores mostrados. Se filtran los valores de este campo en función del valor seleccionado en el campo del 'linked_field'.
+     *  - column: nombre de la columna dentro de una tabla para visualizar los datos.
+     *  - short_column: en el caso de una tabla de tamaño reducido, nombre de la columna dentro de una tabla para visualizar datos.
+     *  - column_order: número de orden de la columna entre las columnas de una tabla para visualizar los datos.
+     *  - cell_action: contenido del atributo 'data-action' de la celda.
+     *  - form: if defined as 'no', the field will not be displayed in the add or edit forms.
      * 
      * @param string $field_comment Coment of field from database
      * @return array Array with configuration parameters from field
      */
     public static function field_config($field_comment){
-        if($field_comment == ""){return true;}
+        if($field_comment == ""){return null;}
         
         $tokens = explode(",",$field_comment);
         if(substr($field_comment, -1, 1) == ","){array_pop($tokens);}
         if($tokens){
             foreach($tokens as $token){
                 $conf = explode(":",$token);
-                $field_config[$conf[0]] = $conf[1];
+                $field_config[$conf[0]] = (isset($conf[1]))?$conf[1]:$conf[0];
             }
             if(isset($field_config['value_labels'])){
                 $field_config['value_labels'] = explode('|', $field_config['value_labels']);
@@ -675,6 +718,7 @@ class mysql implements dbInterface{
             $this->fields_config[$field['Field']] = self::field_config($field['Comment']);
         }
         foreach($fields as $field){
+            if(isset($this->fields_config[$field['Field']]['form']) && $this->fields_config[$field['Field']]['form'] === 'no'){continue;}
             $name = $field['Field'];
             $auxname = $table."_id";
             //$field_config = self::field_config($field['Comment']);
@@ -682,7 +726,7 @@ class mysql implements dbInterface{
 
             if(in_array($name, $exclude_fields))continue;
             if($name == $auxname){continue;}
-            if(strpos($name, "_id") && $field_config['external_table'] !== 'none'){
+            if(substr($name,-3) === "_id" && $field_config['external_table'] !== 'none'){
                 if(is_null($this->order)){
                     $order_query = "";
                 }else{
@@ -694,10 +738,12 @@ class mysql implements dbInterface{
                 }
                 
                 if(isset($field_config['external_table'])){
-                    $external_rows = $this->consultar($field_config['external_table'],"",$order_query,false,false);
+                    $external_table = $field_config['external_table'];
+                    $external_rows = $this->consultar($external_table,"",$order_query,false,false);
                     $field_name = $field_config['external_table']."_id";
                 }else{
-                    $external_rows = $this->consultar(substr($name, 0, strlen($name)-3),"",$order_query,false,false);
+                    $external_table = substr($name, 0, strlen($name)-3);
+                    $external_rows = $this->consultar($external_table,"",$order_query,false,false);
                     $field_name = $name;
                 }
                 
@@ -713,7 +759,8 @@ class mysql implements dbInterface{
                         $row_aux_keys = array_keys($row_aux);
                         if(isset($field_config['external_field'])){
                             if(strpos($field_config['external_field'],'+')){
-                                $field_label = $this->create_external_field_label($field_config, $row_aux);
+                                //$field_label = $this->create_external_field_label($field_config, $row_aux);
+                                $field_label = $this->format_external_field_label($table,$name, $row_aux);
                             }else{
                                 $field_label = $row_aux[$field_config['external_field']];
                             }
@@ -767,14 +814,14 @@ class mysql implements dbInterface{
                     $values = $size;
                     $tokens = explode(",",$values);
                     
-                    if($option_0){
+                    if($option_0 && !isset($field_config['input_type'])){
                         $values = array(array('Seleccione una opción',0,'linked_value' => 0));
                     }else{
                         $values = array();
                     }
                     foreach($tokens as $token){
                         $opt = array(substr($token, 1, -1),substr($token, 1, -1));
-                        if(substr($token, 1, -1) === $field['Default'] && !$option_0){
+                        if(substr($token, 1, -1) === $field['Default'] && (!$option_0 || isset($field_config['input_type']))){
                             $opt['selected'] = true;
                         }                        
                         if(isset($field_config['linked_field'])){
@@ -807,7 +854,10 @@ class mysql implements dbInterface{
                 }
             }
             $order_query = substr($order_query, 0, -1);
+        }elseif(isset($external_field_config['external_field'])){
+            $order_query = $external_field_config['external_field'].' '.(($this->order === 'ASC' || $this->order === 'DESC')?$this->order:'');
         }else{
+            $this->container->__warn($external_field_config);
             $order_query = $external_field_config['external_field'].' '.(($this->order === 'ASC' || $this->order === 'DESC')?$this->order:'');
         }
         return $order_query;
@@ -820,7 +870,7 @@ class mysql implements dbInterface{
             if(strlen($token) === 1){
                 $field_label .= $token.' ';
             }else{
-                if(strpos($token, "_id")){
+                if(substr($token,-3) === "_id"){
                     $fields = $this->get_columns_info($external_field_config['external_table']);
                     foreach($fields as $field){
                         if($field['Field'] === $token){
@@ -875,6 +925,7 @@ class mysql implements dbInterface{
             $this->fields_config[$field['Field']] = self::field_config($field['Comment']);
         }
         foreach($fields as $field){
+            if(isset($this->fields_config[$field['Field']]['form']) && $this->fields_config[$field['Field']]['form'] === 'no'){continue;}
             $name = $field['Field'];
             $auxname = $table."_id";
             //$field_config = self::field_config($field['Comment']);
@@ -892,7 +943,7 @@ class mysql implements dbInterface{
                     if(isset($field_config['external_field']) && ($this->order === 'ASC' || $this->order === 'DESC')){
                         $order_query = $this->create_external_field_order_query($field_config);
                     }else{
-                        $order_query = $this->order;
+                        $order_query = $name.' '.$this->order;
                     }
                 }
                 $result_aux = $this->consultar($aux_table,"",$order_query,false,false);
@@ -902,7 +953,8 @@ class mysql implements dbInterface{
                     $keys = array_keys($row_aux);
                     if(isset($field_config['external_field'])){
                         if(strpos($field_config['external_field'],'+')){
-                            $field_label = $this->create_external_field_label($field_config, $row_aux);
+                            //$field_label = $this->create_external_field_label($field_config, $row_aux);
+                            $field_label = $this->format_external_field_label($table,$name, $row_aux);
                         }else{
                             $field_label = $row_aux[$field_config['external_field']];
                         }
@@ -997,9 +1049,13 @@ class mysql implements dbInterface{
      * @param string $id Id attribute of final form
      * @return string HTML code generated
      */
-    public function create_add_form($table,$url="",$exclude_fields=array(),$id=""){
+    public function create_add_form($table,$url="",$exclude_fields=array(),$id="",$option_0 = false){
         $html = '<form class="add_form clearfix" '.((strlen($id) > 0)?'id="'.$id.'"':'').' method="post" lang="es" enctype="multipart/form-data" action="'.$url.'">';
+        if($option_0){
+            $html .= $this->create_add_form_fields($table,$exclude_fields,true);
+        }else{
         $html .= $this->create_add_form_fields($table,$exclude_fields);
+        }
         $html .= '<div id="modal_actions">';
         $html .= '<input type="submit" class="btn btn-success" value="Guardar datos" name="create" />';
         $html .= '</div>';
@@ -1018,17 +1074,24 @@ class mysql implements dbInterface{
      * @param string $idA Id attribute of final form
      * @return string HTML code generated
      */
-    public function create_edit_form($table,$id,$url="",$exclude_fields=array(),$idA=""){
-        $html = '<form class="edit_form clearfix" '.((strlen($idA) > 0)?'id="'.$idA.'"':'').'" method="post" lang="es" enctype="multipart/form-data" action="'.$url.'">';
+    public function create_edit_form($table,$id,$url="",$exclude_fields=array(),$idA="",$option_0 = false){
+        $html = '<form class="edit_form clearfix" '.((strlen($idA) > 0)?'id="'.$idA.'"':'').' method="post" lang="es" enctype="multipart/form-data" action="'.$url.'">';
+        if($option_0){
+            $html .= $this->create_edit_form_fields($table,$id,$exclude_fields,true);
+        }else{
         $html .= $this->create_edit_form_fields($table,$id,$exclude_fields);
+        }
+        
         $html .= '<div id="modal_actions">';
-        $html .= '<input type="submit" class="btn btn-success" value="Modificar datos" name="update" />';
-        $html .= '<input type="button" class="btn btn-warning del_warning" value="Borrar datos" name="delete" rel="'.$table.'" ref="'.$id.'" />';
+        $html .= '<input type="submit" class="btn btn-warning" value="Modificar datos" name="update" />';
+        $html .= '<input type="button" class="btn btn-danger del_warning" value="Borrar datos" name="delete" data-d="'.$this->container->funcs->encode(array('t' => $table,'i' => $id)).'" />';
         $html .= '</div>';
         $html .= '</form>';
 
         return $html;
     }
+    
+    
     
     /**
      * Function that creates a HTML table from database table structure to show his data
@@ -1038,9 +1101,11 @@ class mysql implements dbInterface{
      * @param array $columns Array of columns to show and his names that will be displayed
      * @return string HTML code of table
      */
-    public function create_table_rows($table,$table_id_field,$columns){
+    public function create_table_rows($table,$table_id_field = null,$columns){
         $html = "";
         $filter = '';
+        
+        $this->get_table_config($table);
         
         if(isset($_SESSION[$table])){
             foreach($_SESSION[$table] as $name => $value){
@@ -1050,10 +1115,13 @@ class mysql implements dbInterface{
             }
         }
         
-        if(is_null($this->order)){
-            $order_query = "$table_id_field DESC";
+        if(is_null($this->order_by) && !is_null($table_id_field)){
+            $order_query = "$table_id_field ".$this->order;
+        }elseif(is_null($this->order_by)){
+            reset($this->tables_config[$table]);
+            $order_query = key($this->tables_config[$table])." ".$this->order;
         }else{
-            $order_query = $this->order;
+            $order_query = $this->order_by.' '.$this->order;
         }
         
         if($table_id_field !== null){$rows = $this->consultar($table,"1=1 $filter",$order_query." LIMIT 1000",false,false);}
@@ -1062,17 +1130,18 @@ class mysql implements dbInterface{
         if($rows){foreach($rows as $num => $row){
             if($table_id_field !== null){$i = $row[$table_id_field];}
             else{$i = $num;}
-            $html .= "\n<tr ref=\"".$i."\">";
+            $html .= "\n<tr ref=\"".$i."\" data-d=\"".$this->container->funcs->encode(array('t' => $table,'i' => $i))."\">";
             foreach($columns as $column){
                 $column_info = explode(":",$column);
-                if(strpos($column_info[1], "_id")){
+                
                     foreach($aux_col_info as $field){
                         if($field['Field'] == $column_info[1]){
                             $field_config = $this->field_config($field['Comment']);
+                        $action = (isset($field_config['cell_action']))?'data-action="'.$field_config['cell_action'].'"':'';
                             break;
                         }
                     }
-					
+                if(substr($column_info[1],-3) === "_id"){
                     if(isset($field_config['external_table'])){$aux_table = $field_config['external_table'];$aux_id_field = $field_config['external_table']."_id";}
                     else{$aux_table = substr($column_info[1], 0,-3);$aux_id_field = $column_info[1];}
 
@@ -1090,13 +1159,13 @@ class mysql implements dbInterface{
                                     }
                                 }
                                 $field_label = substr($field_label, 0,-1);
-                                $html .= "<td>".$field_label."</td>";
+                                $html .= "<td $action>".$field_label."</td>";
                             }else{
-                                $html .= "<td>".$aux[0][$field_config['external_field']]."</td>";
+                                $html .= "<td $action>".$aux[0][$field_config['external_field']]."</td>";
                             }
-                        }else{if(isset($aux[0][1])){$html .= "<td>".$aux[0][1]."</td>";}else{$html .= '<td style="color:#f00;">-</td>';$this->container->__warn('No existe el campo externo que se intenta mostrar en el campo de la tabla ($aux[0][1]) '.__METHOD__.','.__LINE__.']');}}
+                        }else{if(isset($aux[0][1])){$html .= "<td $action>".$aux[0][1]."</td>";}else{$html .= '<td '.$action.' style="color:#f00;">-</td>';$this->container->__warn('No existe el campo externo que se intenta mostrar en el campo de la tabla ($aux[0][1]) '.__METHOD__.','.__LINE__.']');}}
                     }else{
-                        $html .= '<td style="color:#f00;">[No encontrado]</td>';
+                        $html .= '<td '.$action.' style="color:#f00;">[No encontrado]</td>';
                         $this->container->__warn('No existen los datos referenciados por el campo de id ('.$column_info[1].' = \''.$row[$column_info[1]].'\')');
                     }
                 }else{
@@ -1104,21 +1173,21 @@ class mysql implements dbInterface{
                         $aux = $this->select('attachments',"linked_table = '$table' AND linked_id = '$i'"); 
                         if($aux){$attch_count = $aux['num_elements'];}
                         else{$attch_count = 0;}
-                        $html .= '<td class="mdi">'.$attch_count.'<a href="javascript:void(0);" title="Adjuntar nuevo archivo" class="mdi btn_add_attch" data-i="'.$i.'"></a></td>';
+                        $html .= '<td class="mdi" '.$action.'>'.$attch_count.'<a href="javascript:void(0);" title="'.$this->container->lang->gt('Adjuntar nuevo archivo').'" class="mdi btn_add_attch" data-i="'.$i.'"></a></td>';
                     }else{
                         foreach($aux_col_info as $field){
-                            if($field['Field'] == $column_info[1]){
+                            if($field['Field'] === $column_info[1]){
                                 if($field['Type'] == "date"){
                                     if(is_null($row[$column_info[1]])){
-                                        $html .= "<td>-</td>";
+                                        $html .= "<td $action>-</td>";
                                     }else{
-                                        $html .= "<td>".$this->container->funcs->date_format($row[$column_info[1]],1)."</td>";
+                                        $html .= "<td $action>".$this->container->funcs->date_format($row[$column_info[1]],1)."</td>";
                                     }
                                 }elseif($field['Type'] == "datetime"){
                                     if(is_null($row[$column_info[1]])){
-                                        $html .= "<td>-</td>";
+                                        $html .= "<td $action>-</td>";
                                     }else{
-                                        $html .= "<td>".$this->container->funcs->date_format($row[$column_info[1]],4)."</td>";
+                                        $html .= "<td $action>".$this->container->funcs->date_format($row[$column_info[1]],4)."</td>";
                                     }
                                 }elseif(substr($field['Type'],0,4) == "enum"){
                                     $values = explode(",",str_replace('\'','',explode(")", explode("(", $field['Type'])[1])[0]));
@@ -1126,7 +1195,7 @@ class mysql implements dbInterface{
                                     $value_pos = array_search($row[$column_info[1]], $values,true);
                                     $value_label = ($value_pos !== false && isset($labels[$value_pos]))?$labels[$value_pos]:$row[$column_info[1]];
                                     $html .= "<td $action>$value_label</td>";
-                                }else{$html .= "<td>".$row[$column_info[1]]."</td>";}
+                                }else{$html .= "<td $action>".$row[$column_info[1]]."</td>";}
                             }
                         }
                     }
@@ -1138,5 +1207,332 @@ class mysql implements dbInterface{
         unset($aux,$aux_table,$aux_col_info,$field_config,$column);
         }else{$html .= "<tr><td></td><td colspan=\"".(count($columns)-1)."\">En estos momentos no existen datos.</td></tr>";$num_rows = 0;}
         return $html;
+    }
+    
+    public function create_table($table,$table_id_field = null){
+        $html = $filter = "";
+        $this->get_table_config($table);
+
+        // Creo filtro
+        if(!empty($_SESSION['filter'][$table])){
+            foreach($_SESSION['filter'][$table] as $name => $value){
+                if(is_null($value))continue;
+                if(substr($name, -3) === '_id'){$filter .= " AND $name = '$value'";}
+                else{$filter .= " AND $name LIKE '%".$value."%'";}
+}
+        }
+        
+        // Creo ordenado
+        if(is_null($this->order_by) && !is_null($table_id_field)){
+            $order_query = "$table_id_field ".$this->order;
+        }elseif(is_null($this->order_by)){
+            reset($this->tables_config[$table]);
+            $order_query = key($this->tables_config[$table])." ".$this->order;
+        }else{
+            $order_query = $this->order_by.' '.$this->order;
+        }
+        
+        $html .= '<table class="data_sheet" cellspacing="0" cellpadding="0" rel="'.$table.'">';
+        // Creo header columnas
+        $html .= '<thead><tr>';
+        foreach($this->columns[$table] as $label){
+            $html .= '<th>';
+            $html .= $this->container->lang->gt($label);
+            $html .= '</th>';
+        }
+        $html .= '</tr></thead><tbody>';
+        
+        // Creo filas
+        // (is_object($t) && ($t instanceof Closure))
+        $rows = $this->select($table,"1=1 $filter",$order_query." LIMIT ".$this->max_rows_limit,false,false);
+        if($rows){foreach($rows as $row_num => $row){
+            $i = (!is_null($table_id_field))?$row[$table_id_field]:$row_num;
+            $html .= "\n<tr ref=\"".$i."\" data-d=\"".$this->container->funcs->encode(array('t' => $table,'i' => $i))."\">";
+            foreach($this->columns[$table] as $field => $label){
+                $cell_action = (isset($this->tables_config[$table][$field]['config']['cell_action']))?' data-action="'.$this->tables_config[$table][$field]['config']['cell_action'].'" ':'';
+                $html .= "<td $cell_action>";
+                if($field === 'attachments'){
+                    $atts = $this->select('attachments',"linked_table = '$table' AND linked_id = '$i'"); 
+                    $atts_count = ($atts)?$atts['num_elements']:0;
+                    $html .= '<td class="mdi" '.$cell_action.'>'.$atts_count.'<a href="javascript:void(0);" title="'.$this->container->lang->gt('Adjuntar nuevo archivo').'" class="mdi btn_add_attch" data-i="'.$i.'"></a></td>';
+                }elseif(substr($field,-3) === "_id"){
+                    if(substr($field,0,-3) === $table){$html .= $row[$field];continue;}
+                    
+                    $external_table = (isset($this->tables_config[$table][$field]['config']['external_table']))?$this->tables_config[$table][$field]['config']['external_table']:substr($field, 0,-3);
+                    if(isset($this->tables_config[$table][$field]['config']['external_field']) && strpos($this->tables_config[$table][$field]['config']['external_field'],'+') === false){
+                        $external_field = $this->tables_config[$table][$field]['config']['external_field'];
+                    }elseif(isset($this->tables_config[$table][$field]['config']['external_field'])){
+                        $external_field = $this->tables_config[$table][$field]['config']['external_field'];
+                    }else{
+                        $external_field = $field;
+                    }
+                    
+                    $external_data = $this->select($external_table,$external_table."_id = '".$row[$field]."'","$external_field ASC LIMIT 1");
+                    if($external_data){
+                        $this->get_table_config($external_table);
+                        if(isset($this->tables_config[$table][$field]['config']['external_field'])){
+                            if(strpos($this->tables_config[$table][$field]['config']['external_field'],'+') !== false){
+                                $external_label = '';
+                                $tokens = explode('+', $external_field);
+                                foreach($tokens as $token){
+                                    if(strlen($token) === 1){
+                                        $external_label .= $token.' ';
+                                    }else{
+                                        $external_label .= $external_data[0][$token].' ';
+                                    }
+                                }
+                                $external_label = substr($external_label,0,-1);
+                                $html .= $external_label;
+                            }else{
+                                $html .= $external_data[0][$external_field];
+                            }
+                        }else{
+                            reset($this->columns[$external_table]);
+                            $first_key = key($this->columns[$external_table]);
+                        
+                            if(!is_null($first_key) && isset($row[$first_key])){
+                                
+                                // ..Formateador de celdas..
+                                $html .= $this->format_external_field_label($external_table,$first_key, $row);
+                                //$html .= $row[$first_key];
+                            }else{
+                                $html .= '<span style="color:red;">[Fallo campo externo]</span>';
+                                $this->container->__warn('No se ha podido encontrar un campo de la tabla externa que represente la información en la celda de la tabla ($aux[0][1]) '.__METHOD__.','.__LINE__.']');
+                            }
+                        }
+                    }else{
+                        $html .= '<span style="color:red;">[Datos no encontrados]</span>';
+                        $this->container->__warn('No existen los datos referenciados por el campo de id ('.$field.' = \''.$row[$field].'\')');
+                    }
+                }else{
+                    if(is_null($row[$field])){$html .= "-";}
+                    else{
+                        switch($this->tables_config[$table][$field]['type']){
+                            case 'date':
+                                $html .= $this->container->funcs->date_format($row[$field],1);
+                                break;
+                            case 'datetime':
+                                $html .= $this->container->funcs->date_format($row[$field],4);
+                                break;
+                            case 'enum':
+                                $values = $this->tables_config[$table][$field]['size'];
+                                $labels = (isset($this->tables_config[$table][$field]['config']['value_labels']))?$this->tables_config[$table][$field]['config']['value_labels']:array();
+                                $value_pos = array_search($row[$field],$values,true);
+                                $value_label = ($value_pos !== false && isset($labels[$value_pos]))?$labels[$value_pos]:$row[$field];
+                                $html .= $value_label;
+                                break;
+                            default:
+                                $html .= $row[$field];
+                        }
+                    }
+                }
+                $html .= '</td>';
+            }
+            $html .= '</tr>';
+        }}
+        $html .= '</tbody></table>';
+        
+        return $html;
+    }
+    
+    /**
+     * Function that parses table info and creates an internal array with table config CACHE.
+     * 
+     * Model:
+     * $this->tables_config[TABLE][FIELD_NAME][type]: Field type from MySQL table (ex. INT,VARCHAR,ENUM,DATE,...).
+     *                                        [size]: Field size or values (ex. 11, 255, ['Yes','No'],...).
+     *                                        [config]: Array parsed from field comment with function '$this->field_config'.
+     *                                        [default_value]: Default value of field.
+     *                                        [detail]: Array with all data from the field info. From function '$this->get_columns_info'.
+     * 
+     * @param string $table Target table name
+     */
+    private function get_table_config($table){
+        if(!empty($this->tables_config[$table])){return true;}
+        $table_fields = $this->get_columns_info($table);
+        
+        foreach($table_fields as $field){
+            $this->tables_config[$table][$field['Field']]['config'] = $this->field_config($field['Comment']);
+            $field_type = (strpos($field['Type'], ' ') !== false)?substr($field['Type'], 0, strpos($field['Type'],' ')):$field['Type'];
+            if(strpos($field_type,'(') !== false){
+                preg_match_all('/^(.*)\((.+)\)/m', $field_type,$aux_type);
+                $aux_type = array($aux_type[1][0],$aux_type[2][0]);
+            }else{
+                $aux_type = array($field_type);
+            }
+            $this->tables_config[$table][$field['Field']]['type'] = $aux_type[0]; //Puede tener valor entre parentesis o nada.
+            $this->tables_config[$table][$field['Field']]['size'] = (isset($aux_type[1]))?explode(',', $aux_type[1]):null;
+            if(is_array($this->tables_config[$table][$field['Field']]['size'])){
+                array_walk($this->tables_config[$table][$field['Field']]['size'],function(&$value,$clave){
+                    $value = str_replace('\'','',$value);
+                });
+            }
+            
+            $this->tables_config[$table][$field['Field']]['default'] = $field['Default']; //Puede tener valor entre parentesis o nada.
+            $this->tables_config[$table][$field['Field']]['detail'] = $field;
+        }
+        
+        $this->create_table_columns($table);
+    }
+    
+    public function add_table_column($name,$config,$table,$order = null){
+        
+        $final_config = array(
+            'Field' => $name,
+            'Type' => 'attachments',
+            'Collation' => 'utf8_spanish2_ci',
+            'Null' => 'YES',
+            'Key' => '',
+            'Default' => NULL,
+            'Extra' => '',
+            'Privileges' => 'select,insert,update,references',
+            'Comment' => 'label:'.$name.',cell_action:attachment'
+        );
+        
+        if(!is_null($order)){
+            $final_config['Comment'] .= 'column_order:'.$order;
+        }
+        
+        $this->manual_columns[$table] = null;
+    }
+    
+    /**
+     * Crea los arrays con las columnas de las tablas cortas y largas.
+     * 
+     * Las columnas se ordenan según las siguientes directrices:
+     * - Si no se ha especificado una posición de orden en ninguna columna, siguen el orden en que estan definidas en la tabla.
+     * - Si se define una posición en algun campo:
+     *      · Los campos con orden definido se intentan ordenar de menor a mayor empleando las posiciones definidas. La posición final no tiene porqué coincidir con la especificada a menos que todos los campos de la tabla tengan definida una posición y ninguno repita la opsición de otro campo.
+     *      · Si dos campos definen la misma posición en el orden, primero se colocará el campo que se encuentre antes en el orden en que fueron definidos en la tabla. Los siguientes irán sucesivamente.
+     *      · Los restantes campos que no tengan definida su posición se añadirán a continuación de los que si la tenían definida, en el orden en que fueron definidos en la tabla.
+     * 
+     * - El nombre de las columnas que irán en la tabla se toma de los campos de configuración correspondientes y si no está definido, se muestra el nombre del campo en la tabla. La precedencia es la siguiente:
+     *      · short_column > column > FIELD_NAME
+     * 
+     * - En el caso de querer ocultar una columna, hacerlo definiendo 'column:no'.
+     * 
+     * - En caso de más de un campo de configuración, la precedencia es la siguiente:
+     *      · short_column > column:no > column
+     * 
+     * - Dos columnas no pueden tener definido en la configuración (comentario) la misma etiqueta label, provoca comportamiento errático.
+     * 
+     * @param string $table
+     * @return array
+     */
+    private function create_table_columns($table){
+        $short_columns = $columns = $cols = $cols2 = array();
+        $keys = array();
+        $this->short_columns[$table] = array();
+        $this->columns[$table] = array();
+        
+        foreach($this->tables_config[$table] as $key => $field){
+            $column_order = null;
+            if(isset($field['config']['column_order'])){
+                $column_order = (int)$field['config']['column_order'];
+            }
+
+            if(isset($field['config']['short_column'])){
+                if(is_null($column_order)){
+                    $cols[] = $field['config']['short_column'];
+                }else{
+                    $short_columns[$column_order][] = $field['config']['short_column'];
+                }
+            }
+            
+            if(isset($field['config']['short_column'])){
+                $col_name = $field['config']['short_column'];
+            }elseif(isset($field['config']['column'])){
+                $col_name = $field['config']['column'];
+            }elseif(isset($field['config']['label'])){
+                $col_name = $field['config']['label'];
+            }else{
+                $col_name = $key;
+            }
+            
+            $keys[$col_name] = $key;
+            
+            if(isset($field['config']['column']) && $field['config']['column'] === 'no'){
+                continue;
+            }
+            
+            if(is_null($column_order)){
+                $cols2[] = $col_name;
+            }else{
+                $columns[$column_order][] = $col_name;
+            }
+        }
+        
+        $aux1 = $aux2 = array();
+
+        foreach($short_columns as $pos => $subcol){
+            foreach($subcol as $subpos => $field){
+                $aux1[] = $field;
+            }
+        }
+        
+        $short_columns = array_merge($aux1,$cols);
+        
+        foreach($short_columns as $field){
+            $this->short_columns[$table][$keys[$field]] = $field;
+        }
+        
+        foreach($columns as $pos => $subcol){
+            foreach($subcol as $subpos => $field){
+                $aux2[] = $field;
+            }
+        }
+
+        $columns = array_merge($aux2,$cols2);
+        
+        foreach($columns as $field){
+            $this->columns[$table][$keys[$field]] = $field;
+        }
+    }
+    
+    private function format_external_field_label($table,$field,$row){
+        $this->get_table_config($table);
+        if(isset($this->tables_config[$table][$field]['config']['external_field'])){
+            if(strpos($this->tables_config[$table][$field]['config']['external_field'],'+') !== false){
+                $field_label = '';
+                $tokens = explode('+',$this->tables_config[$table][$field]['config']['external_field']);
+                foreach($tokens as $token){
+                    if(strlen($token) === 1){
+                        $field_label .= $token.' ';
+                    }else{
+                        if(substr($token,-3) === "_id"){
+                            //$sub_table = substr($token, 0, -3);
+                            //$this->get_table_config($sub_table);
+                            //$fields = $this->get_columns_info($external_field_config['external_table']);      
+
+                            if(isset($this->tables_config[$table][$token]['config']['external_table'])){
+                                $ext_table = $this->tables_config[$table][$token]['config']['external_table'];
+                            }else{
+                                $ext_table = substr($token,0,-3);
+                            }
+                            $this->get_table_config($ext_table);
+
+                            $token_info = $this->select($ext_table,"$token = '$row[$token]'","$token ASC LIMIT 1");
+                            if($token_info){
+                                if(!is_null($this->tables_config[$ext_table][$token]['config'])){
+                                    $field_label .= $this->format_external_field_label($ext_table,$token,$token_info[0]);
+                                }else{
+                                    $field_label .= $token_info[0][$token].' ';
+                                }
+                            }else{
+                                $this->container->__warn('No ha sido posible recuperar la información del campo externo de segundo nivel. external_table: '.$ext_table.' external_field: '.$token);
+                                $field_label .= '#'.$row[$token].' -No encontrado- ';
+                            }
+                        }else{
+                            $field_label .= $row[$token].' ';
+                        }
+                    }
+                }
+                return substr($field_label, 0,-1);
+            }else{
+                return $row[$this->tables_config[$table][$field]['config']['external_field']];
+            }
+        }else{
+            return $row[$field];
+        }
     }
 }

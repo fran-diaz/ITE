@@ -293,11 +293,12 @@ class ite{
      */
     public function request($uri_ptr, $callback, $url = null) 
     {
+        
         if(is_null($url) || $url === 'GET'){$target_url = $_GET['url'];}
         else{$target_url = $url;}
         $matches = array();
         $uri_ptr = (defined('WEB_PATH')) ? WEB_PATH . $uri_ptr : $uri_ptr;
-        $pattern = '%^' . preg_replace('/\{([\p{L}0-9_\-ñÑ ]+)\}/s', '([\p{L}0-9\-\_ñÑ ]+)', $uri_ptr) . '$%su';
+        $pattern = '%^' . preg_replace('/\{([\p{L}0-9_\-ñÑ \.\(\)]+)\}/s', '([\p{L}0-9\-\_ñÑ \.\(\)]+)', $uri_ptr) . '$%su';
         if (preg_match($pattern, $target_url, $matches)) {
             array_shift($matches);
             if(is_null($url) || $url === 'GET'){
@@ -387,6 +388,8 @@ class ite{
         }else{
             if(defined('WEB_PATH') && is_readable(WEB_PATH.$_GET['url'])){
                 $_GET['url'] = WEB_PATH.$_GET['url'];
+            }elseif(defined('WEB_PATH') && !is_readable(WEB_PATH.$_GET['url']) && !is_readable($_GET['url'])){
+                $_GET['url'] = WEB_PATH.$_GET['url'];
             }
         }
         if($_GET['url'] == '' || substr($_GET['url'],-1) == '/'){
@@ -405,26 +408,38 @@ class ite{
      */
     public function routerControl()
     {
-        global $title,$description,$keywords,$_ITE;
+        global $title,$description,$keywords,$_ITE,$_ITEC;
         
         ob_start();
         $header_content = null;
         if(is_readable(ROOT_PATH.$_GET['url'])){
-            if(($this->files->get_extension($_GET['url']) == "html" || $this->files->get_extension($_GET['url']) == "php") && strpos($_GET['url'], "skip-process") === false){
+            if((   $this->files->get_extension($_GET['url']) == "html" 
+                || $this->files->get_extension($_GET['url']) == "php") 
+                && strpos($_GET['url'], "skip-process") === false){
+                
                 include(ROOT_PATH.$_GET['url']);
                 ob_start();
+                if(is_readable(ROOT_PATH.WEB_PATH."inc/header.php")){
+                    require(ROOT_PATH.WEB_PATH."inc/header.php");
+                }else{
                 require(ROOT_PATH."inc/header.php");
+                }
                 $header_content = ob_get_contents();
                 ob_end_clean();
+                if(is_readable(ROOT_PATH.WEB_PATH."inc/footer.php")){
+                    require(ROOT_PATH.WEB_PATH."inc/footer.php");
+                }else{
                 require(ROOT_PATH."inc/footer.php");
+                }
                 $_SESSION['ROUTED'] = $_GET['url'];
-
+                $_SESSION['CURRENT_URL'] = $_GET['url'];
             }else{include(ROOT_PATH.$_GET['url']);}  
         }else{
             unset($_SESSION['ROUTED']);
             $aux = explode(DIRECTORY_SEPARATOR,$_GET['url']);
             array_pop($aux);
             $tmp_path = "";
+            
             foreach($aux as $folder){
                 $tmp_path .= $folder.DIRECTORY_SEPARATOR;
                 if(is_readable(ROOT_PATH.$tmp_path.'router.php')){
@@ -434,17 +449,27 @@ class ite{
                     }
                     include(ROOT_PATH.$tmp_path.'router.php');
                     ob_start();
+                    if(is_readable(ROOT_PATH.WEB_PATH."inc/header.php")){
+                        require(ROOT_PATH.WEB_PATH."inc/header.php");
+                    }else{
                     require(ROOT_PATH."inc/header.php");
+                    }
                     $header_content = ob_get_contents();
                     ob_end_clean();
+                    if(is_readable(ROOT_PATH.WEB_PATH."inc/footer.php")){
+                        require(ROOT_PATH.WEB_PATH."inc/footer.php");
+                    }else{
                     require(ROOT_PATH."inc/footer.php");
                 }
+            }
             }
             if(!isset($_SESSION['ROUTED'])){
                 $this->__warn("Archivo no encontrado: ".$_GET['url']);
                 if(defined('WEB_PATH') && is_readable(ROOT_PATH.WEB_PATH."404.html")){header("Location: /404.html");}
                 elseif(is_readable(ROOT_PATH."404.html")){header("Location: /404.html");}
                 else{die("Imposible mostrar la página, archivo no encontrado.");}
+            }else{
+                $_SESSION['CURRENT_URL'] = $_GET['url'];
             }
             if(DEBUG === true){$this->__info($_SESSION['ROUTED']);}
         }
@@ -469,13 +494,24 @@ class ite{
             $buffer = $header_content.$buffer;
         }
         
-        if($this->files->get_extension($_GET['url']) != "js" && $this->files->get_extension($_GET['url']) != "css" && $this->files->get_extension($_GET['url']) !== false && DEBUG === false){
+        if(
+                ($this->files->get_extension($_GET['url']) === "html" || 
+                $this->files->get_extension($_GET['url']) === "php" || 
+                $this->files->get_extension($_GET['url']) === false) &&  
+                DEBUG === false
+        ){
             if(strpos($_GET['url'], "skip-process") === false){
                 $buffer = $this->files->source_warn().$this->files->compress_html($buffer);
             }else{
+                $headers = headers_list();
+                
+                if(array_search("Content-type: application/vnd.ms-excel; name='excel';", $headers) === false){
                 $buffer = $this->files->compress_html($buffer);
             }
+                
         }
+        }
+
         return $buffer;
     }
 }

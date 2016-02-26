@@ -111,8 +111,12 @@ class cache {
         if(is_readable($file)){
             if($this->container->files->is_old_seconds($file,$seconds_to_old)){ // Is old
                 return false;
-            }else{return true;}
-        }else{$this->container->__warn('File is not readable. [file: '.$file.']');return false;}
+            }else{
+                return true;
+            }
+        }else{/*$this->container->__warn('File is not readable. [file: '.$file.']');*/
+            return false;
+        }
     }
     
     /**
@@ -216,5 +220,16 @@ class cache {
                 unset($tmp_method,$tmp_seconds);
             }
         }
+    }
+    
+    
+    public function write($cache_file,$data)
+    {
+        return file_put_contents($cache_file,serialize($data));
+    }
+    
+    public function read($cache_file)
+    {
+        return unserialize(file_get_contents($cache_file));
     }
 }

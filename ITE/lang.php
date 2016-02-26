@@ -198,6 +198,7 @@ class lang {
             $content .= "\n".'msgid "'.$value.'"';
             $content .= "\n".'msgstr ""'."\n";
         }
+        
         return file_put_contents($final_file,$content);
     }
     
@@ -248,9 +249,9 @@ class lang {
     }
     
     public function savePending(){
-        if(!is_dir(ROOT_PATH.'lang')){
-            @mkdir(ROOT_PATH.'lang',0775);
-            if(!is_dir(ROOT_PATH.'lang')){
+        if(!is_dir(LANG_PATH)){
+            @mkdir(LANG_PATH,0775);
+            if(!is_dir(LANG_PATH)){
                 if(!headers_sent()){
                     $this->container->__warn('No ha sido posible crear el directorio de idiomas (lang). Posiblemente falten permisos.');
                 }
@@ -261,6 +262,7 @@ class lang {
             return $this->writePoFile($this->active_lang_file.'.pending');
         }else{
             $pending = json_encode($this->pending);
+            
             return file_put_contents($this->active_lang_file.'.pending',$pending);
         }
     }

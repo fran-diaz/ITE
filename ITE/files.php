@@ -123,7 +123,7 @@ class files {
          foreach ($objects as $object) {
            if ($object != "." && $object != "..") {
              if(is_dir($dir.DIRECTORY_SEPARATOR.$object)){
-                rrmdir($dir.DIRECTORY_SEPARATOR.$object);
+                $this->rrmdir($dir.DIRECTORY_SEPARATOR.$object);
              }else{
                 unlink($dir.DIRECTORY_SEPARATOR.$object);
              }
@@ -237,6 +237,8 @@ class files {
         if(strrpos($file,".") === false){return false;}
         $pos = strrpos($file,".");
         $ext = substr($file, $pos+1);
+        $pos2 = strrpos($ext,"#");
+        if($pos2 > 0)$ext = substr($ext, 0,$pos2);
         if(strlen($ext) > 5 || strlen($ext) < 1){return false;}else{return strtolower($ext);}
     }
     
