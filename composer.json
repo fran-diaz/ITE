@@ -1,9 +1,9 @@
 {
-    "name": "fran-diaz/ITE",
+    "name": "fran-diaz/ite",
     "description": "Basic PHP 5 Framework",
     "type": "library",
     "keywords": ["ite"],
-    "homepage": "https://github.com/fran-diaz/ITE",
+    "homepage": "https://github.com/fran-diaz/ite",
     "license": "MIT",
     "authors": [
         {
@@ -15,7 +15,7 @@
     ],
     "support": {
         "email": "fran.diaz.gonzalez@gmail.com",
-        "source": "https://github.com/fran-diaz/ITE"
+        "source": "https://github.com/fran-diaz/ite"
     },
     "require": {
         "php": ">=5.5.0"
