@@ -47,6 +47,10 @@ namespace ITE;
  * @access      public
  * 
  */
+
+use Monolog\Logger;
+use Monolog\Handler\FirePHPHandler;
+
 class ite{
     /**
      * @property $instance ite
@@ -108,7 +112,9 @@ class ite{
             }
         });
 
-        $this->debug=($this->__debug())?new FirePHP():false;
+        //$this->debug=($this->__debug())?new FirePHP():false;
+        $this->debug = new Logger('my_logger');
+        $logger->pushHandler(new FirePHPHandler());
     }
     
     /**
@@ -193,7 +199,8 @@ class ite{
      * @param string $msg Error message sent to the user
      */
     public function __error($msg){
-        if($this->__debug()){$this->debug->error($msg);}
+        //if($this->__debug()){$this->debug->error($msg);}
+        if($this->__debug()){$this->debug->addInfo($msg);}
         else{\trigger_error($msg,E_USER_ERROR);}
     }
     
@@ -203,7 +210,8 @@ class ite{
      * @param string $msg
      */
     public function __warn($msg){
-        if($this->__debug()){$this->debug->warn($msg);}
+        //if($this->__debug()){$this->debug->warn($msg);}
+        if($this->__debug()){$this->debug->addWarning($msg);}
         else{\trigger_error($msg,E_USER_WARNING);}
     }
     
@@ -213,7 +221,8 @@ class ite{
      * @param string $msg
      */
     public function __info($msg){
-        if($this->__debug()){$this->debug->info($msg);}
+        //if($this->__debug()){$this->debug->info($msg);}
+        if($this->__debug()){$this->debug->addError($msg);}
         else{\trigger_error($msg,E_USER_NOTICE);}
     }
     
