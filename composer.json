@@ -18,7 +18,8 @@
         "source": "https://github.com/fran-diaz/ite"
     },
     "require": {
-        "php": ">=5.5.0"
+        "php": ">=5.5.0",
+        "monolog/monolog": "dev-master"
     },
     "autoload": { 
         "classmap": [ "ITE/" ] 
