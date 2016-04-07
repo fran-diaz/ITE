@@ -107,6 +107,9 @@ class ite{
             }elseif(file_exists(str_replace('\\','/',CACHE_PATH. $temp.DIRECTORY_SEPARATOR.md5($class_file.'.php')))){
                 $filename = str_replace('\\','/',CACHE_PATH. $temp.DIRECTORY_SEPARATOR.md5($class_file.'.php'));
                 require_once($filename);
+            }elseif(file_exists(str_replace('\\','/',ROOT_PATH. $class_namespace.DIRECTORY_SEPARATOR.$class_file.'.php'))){
+                $filename = str_replace('\\','/',ROOT_PATH. $class_namespace.DIRECTORY_SEPARATOR.$class_file.'.php');
+                require_once($filename);
             }else{
                 return false;
             }
