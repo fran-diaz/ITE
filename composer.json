@@ -23,5 +23,7 @@
     },
     "autoload": { 
         "classmap": [ "ITE/" ] 
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
