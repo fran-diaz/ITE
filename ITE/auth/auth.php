@@ -1,5 +1,5 @@
 <?php
-namespace ITE;
+namespace ITE\auth;
 
 /**
  * Class that manages permissions and restrictions
@@ -15,6 +15,7 @@ class auth {
     public $container;
     private $storage;
     private $perms_cache = array();
+    private $system_admin_id = '9999';
     
     public function __construct($container) {
         $this->container = $container;
@@ -23,13 +24,14 @@ class auth {
     }
     
     private function createPermsCache(){
-        $perms = $this->container->bdd->select('permissions','','',false,false);
+        $perms = $this->container->bdd->select('SELECT permissions_id, abbr FROM permissions','','',false,false);
         if($perms){
             $this->perms_cache = array();
             foreach($perms as $perm){
                 $this->perms_cache[$perm['permissions_id']] = $perm['abbr'];
                 $this->perms_cache[$perm['abbr']] = $perm['permissions_id'];
             }
+            
             return true;
         }else{
             $this->container->__warn('No es posible crear la cache de permisos.');
@@ -38,7 +40,7 @@ class auth {
     }
     
     public function setStorage($new_storage){
-        if($new_storage instanceof \ITE\mysql){
+        if($new_storage instanceof \ITE\db\mysql){
             $this->storage = $new_storage;
             return true;
         }else{
@@ -100,6 +102,18 @@ class auth {
         return false;
     }
     
+    public function checkSystemAdmin($user_id = 'SESSION'){
+        switch($user_id){
+            case 'SESSION':
+                if(isset($_SESSION['user_sa']) && $_SESSION['user_sa'] == true && isset($_SESSION['user_id']) && $_SESSION['user_id'] == $this->system_admin_id){return true;}
+                break;
+            default:
+                $user_info = $this->storage->select('users',"users_id = '$user_id'",'',false,false);
+                if($user_info && $user_info[0]['sa'] === 1 && $user_info[0]['users_id'] == $this->system_admin_id){return true;}
+        }
+        return false;
+    }
+    
     /**
      * Network ranges can be specified as:
      * 1. Wildcard format:     1.2.3.*
@@ -110,7 +124,6 @@ class auth {
      * @return boolean
      */
     public function checkIP($ip,$range){
-        $this->container->__info($range);
         if (strpos($range, '/') !== false) {
             // $range is in IP/NETMASK format
             list($range, $netmask) = explode('/', $range, 2);

@@ -1,19 +1,18 @@
 <?php
-namespace ITE;
+namespace ITE\lang\loaders;
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
 
 /**
- * Class that manages language layers
- * 
- * @copyright   Copyright © 2007-2014 Fran Díaz
- * @author      Fran Díaz <fran.diaz.gonzalez@gmail.com>
- * @license     http://opensource.org/licenses/MIT
- * @package     ITE
- * @access      public
- * 
+ * Description of i18n
+ *
+ * @author Fran Díaz <fran.diaz.gonzalez@gmail.com>
  */
-use \locale_accept_from_http;
-
-class lang {
+class strings implements loadersInterface 
+{
     public $container;
     private $translation;
     private $active_lang;
@@ -23,6 +22,10 @@ class lang {
     
     public function __construct($container) {
         $this->container = $container;
+        
+        if(LANG_IN_USE !== false){
+            $this->loadLanguage(LANG_IN_USE, 'PO EDIT');
+        }
     }
     
     /**
@@ -31,7 +34,7 @@ class lang {
      */
     public function getBrowserLanguage() {
         if (isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) && strlen($_SERVER['HTTP_ACCEPT_LANGUAGE']) >= 2) {
-            $locale = locale_accept_from_http($_SERVER['HTTP_ACCEPT_LANGUAGE']);
+            $locale = \locale_accept_from_http($_SERVER['HTTP_ACCEPT_LANGUAGE']);
             $aux = $this->container->bdd->select('SELECT abbr FROM languages','','',false);
             if($aux){foreach($aux as $lang){
                 $languages[] = $lang['abbr']; 
@@ -53,7 +56,7 @@ class lang {
         }
     }
     
-    /**
+   /**
      * Function that loads language layer file
      * 
      * @param string $lang Language file to load
@@ -67,28 +70,12 @@ class lang {
         header('Vary: Accept-Language');
         
         switch($type){
-            case 'PHP array':
-                $this->active_lang_file = LANG_PATH.$lang.".php";
-                if(is_readable(LANG_PATH.$lang.".php")){
-                    require(LANG_PATH.$lang.".php");
-                }else{
-                    $this->container->__error("Imposible cargar la plantilla de idioma: archivo de idioma no legible usando formato 'PHP array' (".LANG_PATH.$lang.".php).");
-                }
-                break;
             case 'IOS STRINGS':
                 $this->active_lang_file = LANG_PATH.$lang.".strings";
                 if(is_readable(LANG_PATH.$lang.".strings")){
                     $this->translation = $this->processStringsFile(LANG_PATH.$lang.".strings");
                 }else{
                     $this->container->__error("Imposible cargar la plantilla de idioma: archivo de idioma no legible usando formato 'IOS STRINGS' (".LANG_PATH.$lang.".strings).");
-                }
-                break;
-            case 'PO EDIT':
-                $this->active_lang_file = LANG_PATH.$lang.".po";
-                if(is_readable(LANG_PATH.$lang.".po")){
-                    $this->translation = $this->processPoFile(LANG_PATH.$lang.".po");
-                }else{
-                    $this->container->__error("Imposible cargar la plantilla de idioma: archivo de idioma no legible usando formato 'PO EDIT' (".LANG_PATH.$lang.".po).");
                 }
                 break;
             default:
@@ -116,6 +103,7 @@ class lang {
         $this->loadLanguage($lang, $type);
     }
     
+    
     /**
      * Function that receives a file path, reads its content (in base of IOS STRINGS format) and process it to retrieve an array.
      * 
@@ -131,75 +119,30 @@ class lang {
         return $translation;
     }
     
-    public function poFileHeaders(){
-        $headers = 'msgid ""'."\n".'msgstr ""'."\n\n".'"Plural-Forms: nplurals=2; plural=(n != 1);\n"'."\n".'"Project-Id-Version: '.$this->active_lang.'\n"'."\n".'"POT-Creation-Date: \n"'."\n".'"PO-Revision-Date: \n"'."\n".'"Last-Translator: \n"'."\n".'"Language-Team:  <desarrollo@brainhardware.es>\n"'."\n".'"MIME-Version: 1.0\n"'."\n".'"Content-Type: text/plain; charset=UTF-8\n"'."\n".'"Content-Transfer-Encoding: 8bit\n"'."\n".'"Language: \n"'."\n".'"X-Generator: ITE\n"'."\n".'"X-Poedit-SourceCharset: UTF-8\n"'."\n";
-        
-        return $headers;
+    public function getPending(){
+        if(is_readable($this->active_lang_file.'.pending') !== false){
+            
+            $aux = file_get_contents($this->active_lang_file.'.pending');
+            $decoded = json_decode($aux);
+            if($decoded !== null){$this->pending = $decoded;}
+            
+        }
     }
     
-    /**
-     * Function that receives a file path, reads its content (in base of PO EDIT format) and process it to retrieve an array.
-     * 
-     * @param text $file Content of language file to process.
-     * @return array Translation result.
-     */
-    public function processPoFile($file){
-        $translation = array();
-        if(!is_readable($file)){return false;}
-        $content = file($file);
-        $provisional = false;
-        $id_splitted = false;
-        $msg_splitted = false;
-        
-        foreach ($content as $line) {
-            if(substr(trim($line),-3) === '\n"'){
-                continue;
-            }
-            
-            if (substr($line,0,8) == '#, fuzzy') {
-                if($msg_splitted){$msg_splitted = false;$translation[$current] = $msg;}
-                $provisional = true;
-            }
-            
-            if (substr($line,0,1) == '"' && $id_splitted === true) {
-                $current .= substr(trim($line),1,-1);
-                continue;
-            }
-            
-            if (substr($line,0,1) == '"' && $msg_splitted === true) {
-                $msg .= substr(trim($line),1,-1);
-                continue;
-            }
-            
-            if (substr($line,0,5) == 'msgid') {
-                if($msg_splitted){$msg_splitted = false;$translation[$current] = $msg;}
-                $current = trim(substr(trim(substr($line,5)),1,-1));
-                if(empty($current)){$id_splitted = true;continue;}
-            }
-            if (substr($line,0,6) == 'msgstr') {
-                if($id_splitted){$id_splitted = false;}
-                $msg = trim(substr(trim(substr($line,6)),1,-1));
-                if(empty($msg)){$msg_splitted = true;continue;}
-                
-                $translation[$current] = $msg;
-                if($provisional){$provisional = false;}
+    public function savePending(){
+        if(!is_dir(LANG_PATH)){
+            @mkdir(LANG_PATH,0775);
+            if(!is_dir(LANG_PATH)){
+                if(!headers_sent()){
+                    $this->container->__warn('No ha sido posible crear el directorio de idiomas (lang). Posiblemente falten permisos.');
+                }
+                return false;
             }
         }
-        if($msg_splitted){$msg_splitted = false;$translation[$current] = $msg;}
+        $pending = json_encode($this->pending);
+
+        return file_put_contents($this->active_lang_file.'.pending',$pending);
         
-        return $translation;
-    }
-    
-    public function writePoFile($final_file){
-        $content = $this->poFileHeaders();
-        
-        foreach($this->pending as $key => $value){
-            $content .= "\n#, fuzzy";
-            $content .= "\n".'msgid "'.$value.'"';
-            $content .= "\n".'msgstr ""'."\n";
-        }
-        
-        return file_put_contents($final_file,$content);
     }
     
     /**
@@ -209,7 +152,7 @@ class lang {
      * @param string $search Text string to be translated
      * @return string If located, the text translation; In not, the original string.
      */
-    public function gt($search){
+    public function gt($search,...$params){
         if(LANG_IN_USE === false){return $search;}
         if(isset($this->translation[$search])){
             if(!empty($this->translation[$search])){
@@ -231,41 +174,10 @@ class lang {
      * @param string $search Text string to be translated.
      * @return string If located, the text translation; In not, the original string.
      */
-    public function getText($search){
-        return $this->gt($search);
+    public function getText($search,...$params){
+        return $this->gt($search,$params);
     }
     
-    public function getPending(){
-        if(is_readable($this->active_lang_file.'.pending') !== false){
-            if($this->lang_file_type === "PO EDIT"){
-                $aux = $this->processPoFile($this->active_lang_file.'.pending');
-                $this->pending = array_keys($aux);
-            }else{
-                $aux = file_get_contents($this->active_lang_file.'.pending');
-                $decoded = json_decode($aux);
-                if($decoded !== null){$this->pending = $decoded;}
-            }
-        }
-    }
-    
-    public function savePending(){
-        if(!is_dir(LANG_PATH)){
-            @mkdir(LANG_PATH,0775);
-            if(!is_dir(LANG_PATH)){
-                if(!headers_sent()){
-                    $this->container->__warn('No ha sido posible crear el directorio de idiomas (lang). Posiblemente falten permisos.');
-                }
-                return false;
-            }
-        }
-        if($this->lang_file_type === "PO EDIT"){
-            return $this->writePoFile($this->active_lang_file.'.pending');
-        }else{
-            $pending = json_encode($this->pending);
-            
-            return file_put_contents($this->active_lang_file.'.pending',$pending);
-        }
-    }
     
     public function __destruct() {
         if($this->container->__debug() === true && LANG_IN_USE !== false){
