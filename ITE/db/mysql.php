@@ -1599,6 +1599,8 @@ SELECT *
                         $html .= '<td '.$cell_action.' contenteditable="true" data-editable="varchar" data-d="'.$this->container->funcs->encode(array('t' => $table, 'i' => $i, 'f' => $field)).'">';
                     }elseif($this->tables_config[$table][$field]['type'] == 'enum'){
                         $html .= '<td '.$cell_action.' data-editable="enum" data-v="'.$row[$field].'" data-d="'.$this->container->funcs->encode(array('t' => $table, 'i' => $i, 'f' => $field)).'">';
+                    }elseif($this->tables_config[$table][$field]['type'] == 'double'){
+                        $html .= '<td '.$cell_action.' contenteditable="true" data-editable="double" data-d="'.$this->container->funcs->encode(array('t' => $table, 'i' => $i, 'f' => $field)).'">';
                     }else{
                         $html .= "<td $cell_action>";
                     }
