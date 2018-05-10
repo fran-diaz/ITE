@@ -273,7 +273,7 @@ class ite {
             } elseif (is_bool($msg)) {
                 $this->debug->info(($msg) ? 'true' : 'false', $context);
             } else {
-                $this->debug->info('', $msg);
+                $this->debug->info('', [var_export($msg,true)]);
             }
         } else {
             \trigger_error($msg, E_USER_NOTICE);
