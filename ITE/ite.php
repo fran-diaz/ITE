@@ -50,7 +50,7 @@ namespace ITE;
  * 
  */
 use Monolog\Logger;
-use Monolog\Handler\ChromePHPHandler;
+use Monolog\Handler\PHPConsoleHandler;
 
 class ite {
 
@@ -197,9 +197,11 @@ class ite {
      * Initializes Debug Extension.
      */
     public function initializeDebug() {
-        $this->debug = new Logger('ITE');
-        $this->debug->pushHandler(new \Monolog\Handler\FirePHPHandler());
-        //$this->debug->pushHandler(new \Monolog\Handler\BrowserConsoleHandler());
+        $this->debug = new Logger('all');
+        $this->debug->pushHandler(new \Monolog\Handler\PHPConsoleHandler());
+        //$this->debug = new \Monolog\Logger('all', array());
+        
+        \Monolog\ErrorHandler::register($this->debug);
     }
 
     /**
@@ -520,9 +522,12 @@ class ite {
         // Defined WEB_PATH
         if (is_readable(ROOT_PATH . $_GET['url'])) {
             if (in_array($this->url_extension, ['html', 'php', false]) && $skip_process === false) {
-                include(ROOT_PATH . $_GET['url']);
+                
+                $this->__info('TEST -> ' . $_GET['url']);
+                require(ROOT_PATH . $_GET['url']);
 
                 ob_start();
+                
                 if (defined('WEB_PATH') && is_readable(ROOT_PATH . WEB_PATH . "inc/header.php")) {
                     require(ROOT_PATH . WEB_PATH . "inc/header.php");
                 }elseif(defined('DEFAULT_WEB_PATH') && is_readable(ROOT_PATH . DEFAULT_WEB_PATH . "inc/header.php")){   
@@ -543,21 +548,24 @@ class ite {
                 }
                 $_SESSION['ROUTED'] = $_GET['url'];
                 $_SESSION['CURRENT_URL'] = $_GET['url'];
+                
             } else {
                 include(ROOT_PATH . $_GET['url']);
             }
         } elseif ($skip_process !== false) {
+            
             if(is_readable(ROOT_PATH . str_replace('skip-process/', '', $_GET['url']))){
-                echo'1';
+                
                 include(ROOT_PATH . str_replace('skip-process/', '', $_GET['url']));
             }elseif(defined('WEB_PATH') && is_readable(ROOT_PATH . WEB_PATH . str_replace('skip-process/', '', $_GET['url']))){
-                echo'2';
+                
                 include(ROOT_PATH . WEB_PATH . str_replace('skip-process/', '', $_GET['url']));
             }elseif(defined('DEFAULT_WEB_PATH') && is_readable(ROOT_PATH . DEFAULT_WEB_PATH . str_replace('skip-process/', '', $_GET['url']))){
-                echo'3';
+                
                 include(ROOT_PATH . DEFAULT_WEB_PATH . str_replace('skip-process/', '', $_GET['url']));
             }
         } else {
+            
             unset($_SESSION['ROUTED']);
             $aux = explode(DIRECTORY_SEPARATOR, $_GET['url']);
             array_pop($aux);
@@ -653,7 +661,6 @@ class ite {
      */
     public function bufferControl() {
         global $header_content, $buffer;
-
         if (isset($header_content) && !is_null($header_content)) {
             $buffer = $header_content . $buffer;
         }
@@ -669,6 +676,8 @@ class ite {
                 }
             }
         }
+        
+        $this->lang->destructHandler();
 
         return $buffer;
     }

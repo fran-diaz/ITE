@@ -17,6 +17,8 @@ class gettext implements loadersInterface {
     
     public function __construct(\ITE\ite $container) {
         $this->container = $container;
+        
+        //register_shutdown_function(array($this, 'destructHandler'));
     }
     
     /**
@@ -78,7 +80,7 @@ class gettext implements loadersInterface {
         return $this->gt($search,$params);
     }
     
-    public function __destruct() {
+    public function destructHandler(){
         if($this->container->__debug() === true && count($this->pending) >= 1){
             $table_info = $this->container->bdd->free_query('SHOW TABLES LIKE \'system_i18n\'');
             if($table_info === false){
@@ -88,9 +90,13 @@ class gettext implements loadersInterface {
                 }
             }
             
-            if(count($this->pending) >= 1){$this->container->__warn('No encontrada traducción para varias cadenas.');}
+            //if(count($this->pending) >= 1){$this->container->__warn('No encontrada traducción para varias cadenas.');}
             
             $this->container->bdd->free_query("INSERT INTO system_i18n (`locale`,`message`) VALUES ".implode(',',$this->pending)." ON DUPLICATE KEY UPDATE `date` = NOW();");
         }
+    }
+    
+    public function __destruct() {
+        //$this->destructHandler();
     }
 }
