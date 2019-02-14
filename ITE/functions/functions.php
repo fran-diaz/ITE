@@ -13,6 +13,9 @@ namespace ITE\functions;
  */
 class functions { 
     public $container;
+    protected $progress_bar_start = null;
+    protected $progress_bar_prev = null;
+    protected $progress_bar = "";
     
     public function __construct($container) {
         $this->container = $container;

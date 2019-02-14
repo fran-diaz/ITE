@@ -480,9 +480,10 @@ class mysql implements dbInterface {
      * @param integer $size Number of max characters allowed in the field
      * @param string $value Default value to show in the field
      * @param array $config Array of config parametters relative to the field 
+     * @param string $html_type Type of HTML structure for result (form|inline)
      * @return string HTML code generated.
      */
-    public function varchar_field($name, $label, $size = 255, $value = "", $config = false) {
+    public function varchar_field($name, $label, $size = 255, $value = "", $config = false, $html_type = 'form') {
         $html = '';
         if(isset($config['table'])){
             $list_values = $this->free_query("SELECT $name, COUNT($name) AS num FROM $config[table] WHERE $name <> '' GROUP BY $name ORDER BY num DESC",false);
@@ -500,15 +501,26 @@ class mysql implements dbInterface {
             }
         }
         
-        $html .= '<div class="form-group">';
-        $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
-        $html .= '<input type="' . ((isset($config['input_type'])) ? $config['input_type'] : 'text') . '" name="' . $name . '" id="' . $name . '" maxlength="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' value="' . $value . '" placeholder="' . ((isset($config['placeholder'])) ? $this->container->lang->gt($config['placeholder']) : '') . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . ' ' . ((isset($dl_id)) ? 'list="' . $dl_id . '"' : '') . ' />';
-        $html .= '</div>';
+        switch($html_type){
+            case 'inline':
+                if(isset($config['label'])){$label = $config['label'];}
+                $html .= '<div class="form-group '.((isset($config['disabled']) && $config['disabled'] !== false)?'disabled':'').'">';
+                $html .= '<span class="reporter__menu-config-key" title="'.$label.'">'.$label.'</span>';
+                $html .= '<span class="reporter__menu-config-value" data-input-name="'.$name.'" data-input-type="text" data-input-placeholder="'.((isset($config['placeholder']))?$this->container->lang->gt($config['placeholder']):'').'" data-input-maxchars="'.((isset($config['size']))?$config['size']:$size).'" title="'.$value.'">'.$value.'</span>';
+                $html .= '<input type="hidden" name="'.$name.'" value="'.$value.'" />';
+                $html .= '</div>';
+                break;
+            default:
+                $html .= '<div class="form-group '.((isset($config['disabled']) && $config['disabled'] !== false)?'disabled':'').'">';
+                $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
+                $html .= '<input type="' . ((isset($config['input_type'])) ? $config['input_type'] : 'text') . '" name="' . $name . '" id="' . $name . '" maxlength="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' value="' . $value . '" placeholder="' . ((isset($config['placeholder'])) ? $this->container->lang->gt($config['placeholder']) : '') . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . ' ' . ((isset($dl_id) && !isset($config['nolist'])) ? 'list="' . $dl_id . '"' : '') . ' />';
+                $html .= '</div>';
 
-        if (isset($config['linked_field'])) {
-            $html .= '<script type="text/javascript">$(document).on(\'change\',\'#' . $config['linked_field'] . '\',function(){var v = $(this).val();$(\'#' . $name . '\').val(v).prop(\'disable\',true);});</script>';
+                if (isset($config['linked_field'])) {
+                    $html .= '<script type="text/javascript">$(document).on(\'change\',\'#' . $config['linked_field'] . '\',function(){var v = $(this).val();$(\'#' . $name . '\').val(v).prop(\'disable\',true);});</script>';
+                }
         }
-
+        
         return $html;
     }
 
@@ -522,11 +534,22 @@ class mysql implements dbInterface {
      * @param array $config Array of config parametters relative to the field 
      * @return string HTML code generated.
      */
-    public function int_field($name, $label, $size, $value = "", $config = false) {
-        $html = '<div class="form-group">';
-        $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
-        $html .= '<input type="number" name="' . $name . '" id="' . $name . '" maxlength="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' value="' . $value . '" placeholder="' . ((isset($config['placeholder'])) ? $config['placeholder'] : '') . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . ' />';
-        $html .= '</div>';
+    public function int_field($name, $label, $size, $value = "", $config = false, $html_type = 'form') {
+        switch($html_type){
+            case 'inline':
+                if(isset($config['label'])){$label = $config['label'];}
+                $html .= '<div class="form-group '.((isset($config['disabled']) && $config['disabled'] !== false)?'disabled':'').'">';
+                $html .= '<span class="reporter__menu-config-key" title="'.$label.'">'.$label.'</span>';
+                $html .= '<span class="reporter__menu-config-value" data-input-name="'.$name.'" data-input-type="number" data-input-placeholder="'.((isset($config['placeholder']))?$this->container->lang->gt($config['placeholder']):'').'" data-input-maxchars="'.((isset($config['size']))?$config['size']:$size).'" title="'.$value.'">'.$value.'</span>';
+                $html .= '<input type="hidden" name="'.$name.'" value="'.$value.'" />';
+                $html .= '</div>';
+                break;
+            default:
+                $html = '<div class="form-group">';
+                $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
+                $html .= '<input type="number" name="' . $name . '" id="' . $name . '" maxlength="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' value="' . $value . '" placeholder="' . ((isset($config['placeholder'])) ? $config['placeholder'] : '') . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . ' />';
+                $html .= '</div>';
+        }
 
         return $html;
     }
@@ -559,10 +582,18 @@ class mysql implements dbInterface {
      * @param array $config Array of config parametters relative to the field 
      * @return string HTML code generated.
      */
-    public function date_field($name, $label, $value = "", $config = false) {
-        $html = '<div class="form-group">';
-        $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
-        $html .= '<input type="date" class="datepicker ' . ((isset($config['class'])) ? $config['class'] : "") . '" name="' . $name . '" id="' . $name . '" value="' . $value . '" placeholder="' . ((isset($config['placeholder'])) ? $config['placeholder'] : '') . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . ' />';
+    public function date_field($name, $label, $value = "", $config = false, $html_type = 'form') {
+        $html = '<div class="form-group '.((isset($config['disabled']) && $config['disabled'] !== false)?'disabled':'').'">';
+        switch($html_type){
+            case 'inline':
+                if(isset($config['label'])){$label = $config['label'];}
+                $html .= '<span class="reporter__menu-config-key" title="'.$label.'">'.$label.'</span>';
+                $html .= '<input type="text" name="'.$name.'" value="'.$value.'" data-input-name="'.$name.'" data-input-type="date" class="datepicker-here reporter__menu-config-value"  data-language="es"  data-date-format="yyyy-mm-dd" />';
+                break;
+            default:
+                $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
+                $html .= '<input type="date" class="datepicker-here ' . ((isset($config['class'])) ? $config['class'] : "") . '" name="' . $name . '" id="' . $name . '" value="' . $value . '"  data-language="es"  data-date-format="yyyy-mm-dd" placeholder="' . ((isset($config['placeholder'])) ? $config['placeholder'] : '') . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . ' />';
+        }
         $html .= '</div>';
 
         return $html;
@@ -665,55 +696,132 @@ class mysql implements dbInterface {
      * @param array $config Array of config parametters relative to the field 
      * @return string HTML code generated.
      */
-    public function enum_field($name, $label, $values, $size = "1", $config = false) {
-        $html = '<div class="form-group">';
-        $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
+    public function enum_field($name, $label, $values, $size = "1", $config = false,$html_type = 'form') {
+        $html = '<div class="form-group '.((isset($config['disabled']) && $config['disabled'] !== false)?'disabled':'').'">';
+        
 
         if (isset($config['input_type']) && $config['input_type'] == "checkbox") {
-            foreach ($values as $num => $value) {
-                $html .= '<label class="checkbox-inline">
-                        <input type="checkbox" name="' . $name . '" value="' . $value[1] . '" ' . ((isset($value['selected'])) ? 'checked="checked"' : '') . ' ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . '> ' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '
-                </label>';
+            if($html_type !== 'inline'){
+                $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
+            }
+            
+            if($html_type === 'inline' && count($values) > 1){
+                //Multicheckbox
+                if(isset($config['label'])){$label = $config['label'];}
+                  
+                $selected_values = 0;
+                foreach ($values as $num => $value) {
+                    if ($value[1] === 0 && (isset($config['value_labels']) && count($config['value_labels']) >= 1)) {
+                            array_unshift($config['value_labels'], 'Seleccione una opción');
+                    }
+                    if (isset($value['selected'])) {$selected_values++;}
+                }
+
+                $html .= '<span class="reporter__menu-config-key" title="'.$label.'">'.$label.'</span>';
+                $html .= '<span class="reporter__menu-config-value" data-input-name="'.$name.'" data-input-type="enum"  title="'.$selected_values.'">'.$selected_values.' elementos</span>';
+                $html .= '<div class="reporter__menu-config-value-list multi"><span class="reporter__check-all-btn mdi mdi-check-all"></span><span class="reporter__filter-btn mdi mdi-filter-outline"><div class="reporter__filter-box hidden">';
+                $html .= '<input type="text" class="reporter__filter-input" value="" /><a class="reporter__filter-submit btn" href="javascript:void(0);" class="btn">Filtrar</a>';
+                $html .= '</div></span>';
+                foreach ($values as $num => $value) {
+                    if (isset($value['selected'])) {
+                        $html .= '<span class="reporter__menu-config-value-list-item selected" title="'.$value['aux'].'" data-input-value="'.$value[1].'">'.((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]).'</span>';
+                    }else{
+                        $html .= '<span class="reporter__menu-config-value-list-item" title="'.$value['aux'].'" data-input-value="'.$value[1].'">'.((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]).'</span>';
+                    }
+                }
+                $html .= '</div>';
+                $html .= '<input type="hidden" name="'.$name.'" value="'.$values[$selected_value][1].'" />';
+            }else{
+                foreach ($values as $num => $value) {
+                    switch($html_type){
+                        case 'inline': /*→*/
+                            $html .= '<span class="reporter__menu-config-key" title="'.((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]).'">'.((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]).'</span>';
+                            $html .= '<input type="checkbox" name="'.$name.'" data-input-name="'.$name.'" data-input-type="checkbox" value="'.$value[1].'" '.((isset($value['selected']) && $value['selected'] == true)?'checked="checked"':'').' '.((isset($config['disabled']))?'disabled="'.$config['disabled'].'"':'').' class="reporter__menu-config-value" />';
+
+                            break;
+                        default:
+                            $html .= '<label class="checkbox-inline">
+                                <input type="checkbox" name="' . $name . '" value="' . $value[1] . '" ' . ((isset($value['selected'])) ? 'checked="checked"' : '') . ' ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . '> ' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '
+                            </label>';
+                    }
+                }
             }
         } elseif (isset($config['input_type']) && $config['input_type'] == "radio") {
+            $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
             foreach ($values as $num => $value) {
                 $html .= '<label class="radio-inline">
                         <input type="radio" name="' . $name . '" value="' . $value[1] . '" ' . ((isset($value['selected'])) ? 'checked="checked"' : '') . ' ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . '> ' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '
                 </label>';
             }
         } else {
-            //Linked_to
-            if (isset($config['linked_field'])) {
-                $html .= '<select name="' . $name . '" id="' . $name . '" size="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' data-linked-field="' . $config['linked_field'] . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . '>';
-            } else {
-                $html .= '<select name="' . $name . '" id="' . $name . '" size="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . '>';
-            }
-
-            foreach ($values as $num => $value) {
-                if ($value[1] === 0) {
-                    if (isset($config['value_labels']) && count($config['value_labels']) >= 1) {
-                        array_unshift($config['value_labels'], 'Seleccione una opción');
+            switch($html_type){
+                case 'inline':
+                    if(isset($config['label'])){$label = $config['label'];}
+                    
+                    foreach ($values as $num => $value) {
+                        if ($value[1] === 0 && (isset($config['value_labels']) && count($config['value_labels']) >= 1)) {
+                                array_unshift($config['value_labels'], 'Seleccione una opción');
+                        }
+                        if (isset($value['selected'])) {$selected_value = $num;}
                     }
-                    if (isset($value['selected'])) {
-                        $html .= '<option value="' . $value[1] . '" selected="selected">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                    if(!isset($selected_value)){
+                        $selected_value = 0;
+                        $values[$selected_value]['selected'] = true;
+                    }
+                    
+                    
+                    $html .= '<span class="reporter__menu-config-key" title="'.$label.'">'.$label.'</span>';
+                    $html .= '<span class="reporter__menu-config-value" data-input-name="'.$name.'" data-input-type="enum" title="'.$values[$selected_value][0].'">'.$values[$selected_value][0].'</span>';
+                    $html .= '<div class="reporter__menu-config-value-list"><span class="reporter__filter-btn mdi mdi-filter-outline"><div class="reporter__filter-box hidden">';
+                    $html .= '<input type="text" class="reporter__filter-input" value="" /><a class="reporter__filter-submit btn" href="javascript:void(0);" class="btn">Filtrar</a>';
+                    $html .= '</div></span>';
+                    foreach ($values as $num => $value) {
+                        if (isset($value['selected'])) {
+                            $html .= '<span class="reporter__menu-config-value-list-item selected" data-input-value="'.$value[1].'">'.((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]).'</span>';
+                        }else{
+                            $html .= '<span class="reporter__menu-config-value-list-item" data-input-value="'.$value[1].'">'.((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]).'</span>';
+                        }
+                    }
+                    $html .= '</div>';
+                    $html .= '<input type="hidden" name="'.$name.'" value="'.$values[$selected_value][1].'" />';
+                    
+                    break;
+                default:
+                    $html .= $this->field_label($name, (isset($config['label'])) ? $config['label'] : $label, $config);
+                    
+                    //Linked_to
+                    if (isset($config['linked_field'])) {
+                        $html .= '<select name="' . $name . '" id="' . $name . '" size="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' data-linked-field="' . $config['linked_field'] . '" ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . '>';
                     } else {
-                        $html .= '<option value="' . $value[1] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                        $html .= '<select name="' . $name . '" id="' . $name . '" size="' . ((isset($config['size'])) ? $config['size'] : $size) . '" ' . ((isset($config['class'])) ? 'class="' . $config['class'] . '"' : "") . ' ' . ((isset($config['disabled'])) ? 'disabled="' . $config['disabled'] . '"' : '') . '>';
                     }
-                } elseif (isset($config['linked_field']) && isset($value['selected'])) {
-                    $html .= '<option value="' . $value[1] . '" selected="selected" data-linked-value="' . $value['linked_value'] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
-                } elseif (isset($value['selected'])) {
-                    $html .= '<option value="' . $value[1] . '" selected="selected">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
-                } elseif (isset($config['linked_field'])) {
-                    $html .= '<option value="' . $value[1] . '" data-linked-value="' . $value['linked_value'] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
-                } else {
-                    $html .= '<option value="' . $value[1] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
-                }
-            }
-            $html .= '</select>';
-        }
 
-        if (isset($config['linked_field'])) {
-            $html .= '<script type="text/javascript">$(document).on(\'change\',\'#' . $config['linked_field'] . '\',function(){var v = $(this).find(\'option:selected\').attr(\'data-linked-aux-value\');$(\'#' . $name . '\').find(\'option\').each(function(i,el){ $(this).prop(\'selected\',false);if($(this).attr(\'value\') === v){$(this).prop(\'selected\',true);} });});</script>';
+                    foreach ($values as $num => $value) {
+                        if ($value[1] === 0) {
+                            if (isset($config['value_labels']) && count($config['value_labels']) >= 1) {
+                                array_unshift($config['value_labels'], 'Seleccione una opción');
+                            }
+                            if (isset($value['selected'])) {
+                                $html .= '<option value="' . $value[1] . '" selected="selected">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                            } else {
+                                $html .= '<option value="' . $value[1] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                            }
+                        } elseif (isset($config['linked_field']) && isset($value['selected'])) {
+                            $html .= '<option value="' . $value[1] . '" selected="selected" data-linked-value="' . $value['linked_value'] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                        } elseif (isset($value['selected'])) {
+                            $html .= '<option value="' . $value[1] . '" selected="selected">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                        } elseif (isset($config['linked_field'])) {
+                            $html .= '<option value="' . $value[1] . '" data-linked-value="' . $value['linked_value'] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                        } else {
+                            $html .= '<option value="' . $value[1] . '">' . ((isset($config['value_labels']) && count($config['value_labels']) >= 1) ? $config['value_labels'][$num] : $value[0]) . '</option>';
+                        }
+                    }
+                    $html .= '</select>';
+                    
+                    if (isset($config['linked_field'])) {
+                        $html .= '<script type="text/javascript">$(document).on(\'change\',\'#' . $config['linked_field'] . '\',function(){var v = $(this).find(\'option:selected\').attr(\'data-linked-aux-value\');$(\'#' . $name . '\').find(\'option\').each(function(i,el){ $(this).prop(\'selected\',false);if($(this).attr(\'value\') === v){$(this).prop(\'selected\',true);} });});</script>';
+                    }
+            }
         }
 
         $html .= '</div>';
